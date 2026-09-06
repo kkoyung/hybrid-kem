@@ -37,22 +37,6 @@ use shake::digest::{ExtendableOutput, XofReader};
 
 const SEED_SIZE: usize = 32;
 
-/// MlKem768P256 ciphertext
-struct MlKem768P256Ciphertext {
-    kem_ciphertext: ArrayN<u8, { <MlKem768 as Kem>::CiphertextSize::USIZE }>,
-    group_ciphertext: GroupPublicKey<NistP256>,
-}
-
-impl From<MlKem768P256Ciphertext> for Ciphertext<MlKem768P256> {
-    fn from(value: MlKem768P256Ciphertext) -> Self {
-        let mut buffer = Ciphertext::<MlKem768P256>::default();
-        buffer[..<MlKem768 as Kem>::CiphertextSize::USIZE].copy_from_slice(&value.kem_ciphertext);
-        buffer[<MlKem768 as Kem>::CiphertextSize::USIZE..]
-            .copy_from_slice(&value.group_ciphertext.to_sec1_bytes());
-        buffer
-    }
-}
-
 /// MlKem768P256
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
 struct MlKem768P256 {}
@@ -87,11 +71,11 @@ impl Encapsulate for HybridKemEncapsulationKey<MlKem768, NistP256> {
             &self.group_public_key,
             br"MLKEM768-P256",
         );
-        let ciphertext = MlKem768P256Ciphertext {
-            kem_ciphertext,
-            group_ciphertext,
-        };
-        (ciphertext.into(), secret_key)
+        let mut ciphertext = Ciphertext::<MlKem768P256>::default();
+        ciphertext[..<MlKem768 as Kem>::CiphertextSize::USIZE].copy_from_slice(&kem_ciphertext);
+        ciphertext[<MlKem768 as Kem>::CiphertextSize::USIZE..]
+            .copy_from_slice(&group_ciphertext.to_sec1_bytes());
+        (ciphertext, secret_key)
     }
 }
 
@@ -127,7 +111,27 @@ impl Encapsulate for HybridKemEncapsulationKey<MlKem1024, NistP384> {
     where
         R: CryptoRng + ?Sized,
     {
-        todo!()
+        // <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-5.5>
+        // def Encaps(ek):
+        //     (ek_PQ, ek_T) = split(KEM_PQ.Nek, Group_T.Nelem, ek)
+        //     (ss_PQ, ss_T, ct_PQ, ct_T) = prepareEncapsG(ek_PQ, ek_T)
+        //     ss_H = C2PRICombiner(ss_PQ, ss_T, ct_T, ek_T, Label)
+        //     ct_H = concat(ct_PQ, ct_T)
+        //     return (ss_H, ct_H)
+        let (kem_shared_key, group_shared_secret, kem_ciphertext, group_ciphertext) =
+            prepare_encaps_g(self, rng);
+        let secret_key = c2pri_combiner::<MlKem1024, NistP384, Sha3_256>(
+            &kem_shared_key,
+            &group_shared_secret,
+            &group_ciphertext,
+            &self.group_public_key,
+            br"MLKEM1024-P384",
+        );
+        let mut ciphertext = Ciphertext::<MlKem1024P384>::default();
+        ciphertext[..<MlKem1024 as Kem>::CiphertextSize::USIZE].copy_from_slice(&kem_ciphertext);
+        ciphertext[<MlKem1024 as Kem>::CiphertextSize::USIZE..]
+            .copy_from_slice(&group_ciphertext.to_sec1_bytes());
+        (ciphertext, secret_key)
     }
 }
 
