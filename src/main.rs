@@ -23,12 +23,12 @@ use kem::common::typenum::Sum;
 use kem::consts::{U1, U128};
 use kem::{Ciphertext, DecapsulationKey};
 use kem::{Decapsulate, KeyInit};
-use ml_kem::DecapsulationKey1024 as MlKem1024DecapsulationKey;
-use ml_kem::EncapsulationKey768 as MlKem768EncapsulationKey;
 use ml_kem::EncapsulationKey1024 as MlKem1024EncapsulationKey;
 use ml_kem::array::Array;
 use ml_kem::array::sizes::{U32, U1153};
 use ml_kem::{ArraySize, DecapsulationKey768 as MlKem768DecapsulationKey};
+use ml_kem::{DecapsulationKey1024 as MlKem1024DecapsulationKey, MlKem768};
+use ml_kem::{EncapsulationKey768 as MlKem768EncapsulationKey, MlKem1024};
 use p256::NistP256;
 use p384::{NistP384, U48};
 use rand_core::CryptoRng;
@@ -44,13 +44,13 @@ const SEED_SIZE: usize = 32;
 struct MlKem768P256 {}
 
 impl Kem for MlKem768P256 {
-    type DecapsulationKey = HybridKemDecapsulationKey<MlKem768DecapsulationKey, NistP256>;
-    type EncapsulationKey = HybridKemEncapsulationKey<MlKem768EncapsulationKey, NistP256>;
+    type DecapsulationKey = HybridKemDecapsulationKey<MlKem768, NistP256>;
+    type EncapsulationKey = HybridKemEncapsulationKey<MlKem768, NistP256>;
     type SharedKeySize = U32;
     type CiphertextSize = U1153;
 }
 
-impl Encapsulate for HybridKemEncapsulationKey<MlKem768EncapsulationKey, NistP256> {
+impl Encapsulate for HybridKemEncapsulationKey<MlKem768, NistP256> {
     type Kem = MlKem768P256;
 
     fn encapsulate_with_rng<R>(&self, rng: &mut R) -> (Ciphertext<Self::Kem>, SharedKey<Self::Kem>)
@@ -61,7 +61,7 @@ impl Encapsulate for HybridKemEncapsulationKey<MlKem768EncapsulationKey, NistP25
     }
 }
 
-impl Decapsulator for HybridKemDecapsulationKey<MlKem768DecapsulationKey, NistP256> {
+impl Decapsulator for HybridKemDecapsulationKey<MlKem768, NistP256> {
     type Kem = MlKem768P256;
 
     fn encapsulation_key(&self) -> &EncapsulationKey<Self::Kem> {
@@ -69,7 +69,7 @@ impl Decapsulator for HybridKemDecapsulationKey<MlKem768DecapsulationKey, NistP2
     }
 }
 
-impl Decapsulate for HybridKemDecapsulationKey<MlKem768DecapsulationKey, NistP256> {
+impl Decapsulate for HybridKemDecapsulationKey<MlKem768, NistP256> {
     fn decapsulate(&self, ct: &Ciphertext<Self::Kem>) -> SharedKey<Self::Kem> {
         todo!()
     }
@@ -81,13 +81,13 @@ impl Decapsulate for HybridKemDecapsulationKey<MlKem768DecapsulationKey, NistP25
 struct MlKem1024P384 {}
 
 impl Kem for MlKem1024P384 {
-    type DecapsulationKey = HybridKemDecapsulationKey<MlKem1024DecapsulationKey, NistP384>;
-    type EncapsulationKey = HybridKemEncapsulationKey<MlKem1024EncapsulationKey, NistP384>;
+    type DecapsulationKey = HybridKemDecapsulationKey<MlKem1024, NistP384>;
+    type EncapsulationKey = HybridKemEncapsulationKey<MlKem1024, NistP384>;
     type SharedKeySize = U32;
     type CiphertextSize = U1153;
 }
 
-impl Encapsulate for HybridKemEncapsulationKey<MlKem1024EncapsulationKey, NistP384> {
+impl Encapsulate for HybridKemEncapsulationKey<MlKem1024, NistP384> {
     type Kem = MlKem1024P384;
 
     fn encapsulate_with_rng<R>(&self, rng: &mut R) -> (Ciphertext<Self::Kem>, SharedKey<Self::Kem>)
@@ -98,7 +98,7 @@ impl Encapsulate for HybridKemEncapsulationKey<MlKem1024EncapsulationKey, NistP3
     }
 }
 
-impl Decapsulator for HybridKemDecapsulationKey<MlKem1024DecapsulationKey, NistP384> {
+impl Decapsulator for HybridKemDecapsulationKey<MlKem1024, NistP384> {
     type Kem = MlKem1024P384;
 
     fn encapsulation_key(&self) -> &EncapsulationKey<Self::Kem> {
@@ -106,7 +106,7 @@ impl Decapsulator for HybridKemDecapsulationKey<MlKem1024DecapsulationKey, NistP
     }
 }
 
-impl Decapsulate for HybridKemDecapsulationKey<MlKem1024DecapsulationKey, NistP384> {
+impl Decapsulate for HybridKemDecapsulationKey<MlKem1024, NistP384> {
     fn decapsulate(&self, ct: &Ciphertext<Self::Kem>) -> SharedKey<Self::Kem> {
         todo!()
     }
@@ -115,88 +115,83 @@ impl Decapsulate for HybridKemDecapsulationKey<MlKem1024DecapsulationKey, NistP3
 // EncapsulationKey
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct HybridKemEncapsulationKey<MlKemEncap, C: Curve + CurveArithmetic> {
-    kem_encapsulation_key: MlKemEncap,
+struct HybridKemEncapsulationKey<K: Kem, C: Curve + CurveArithmetic> {
+    kem_encapsulation_key: K::EncapsulationKey,
     group_public_key: GroupPublicKey<C>,
 }
 
-impl<MlKemEncap, C: Curve + CurveArithmetic> KeyExport for HybridKemEncapsulationKey<MlKemEncap, C>
+impl<K: Kem, C: Curve + CurveArithmetic> KeyExport for HybridKemEncapsulationKey<K, C>
 where
-    MlKemEncap: KeySizeUser,
-    MlKemEncap: KeyExport,
     C: PointCompression,
     <C as Curve>::FieldBytesSize: ModulusSize,
     <C as CurveArithmetic>::AffinePoint: FromSec1Point<C> + ToSec1Point<C>,
 {
     fn to_bytes(&self) -> Key<Self> {
         let mut key = Key::<Self>::default();
-        let (kem_bytes, group_bytes) = key.split_at_mut(MlKemEncap::key_size());
+        let (kem_bytes, group_bytes) = key.split_at_mut(K::EncapsulationKey::key_size());
         kem_bytes.copy_from_slice(&self.kem_encapsulation_key.to_bytes());
         group_bytes.copy_from_slice(&self.group_public_key.to_sec1_bytes());
         key
     }
 }
 
-impl<MlKemEncap, C: Curve + CurveArithmetic> TryKeyInit for HybridKemEncapsulationKey<MlKemEncap, C>
+impl<K: Kem, C: Curve + CurveArithmetic> TryKeyInit for HybridKemEncapsulationKey<K, C>
 where
-    MlKemEncap: KeySizeUser,
-    MlKemEncap: TryKeyInit,
     <C as Curve>::FieldBytesSize: ModulusSize,
     <C as CurveArithmetic>::AffinePoint: FromSec1Point<C> + ToSec1Point<C>,
 {
     fn new(key: &Key<Self>) -> Result<Self, InvalidKey> {
-        let kem_bytes = key.get(..MlKemEncap::key_size()).ok_or(InvalidKey)?;
-        let group_bytes = key.get(MlKemEncap::key_size()..).ok_or(InvalidKey)?;
-        let kem_encapsulation_key = MlKemEncap::new_from_slice(kem_bytes)?;
+        let kem_bytes = key
+            .get(..K::EncapsulationKey::key_size())
+            .ok_or(InvalidKey)?;
+        let group_bytes = key
+            .get(K::EncapsulationKey::key_size()..)
+            .ok_or(InvalidKey)?;
+        let kem_encapsulation_key = K::EncapsulationKey::new_from_slice(kem_bytes)?;
         let group_public_key =
             GroupPublicKey::<C>::from_sec1_bytes(group_bytes).map_err(|_| InvalidKey)?;
-        Ok(HybridKemEncapsulationKey::<MlKemEncap, C> {
+        Ok(HybridKemEncapsulationKey {
             kem_encapsulation_key,
             group_public_key,
         })
     }
 }
 
-impl<MlKemEncap, C: Curve + CurveArithmetic> KeySizeUser
-    for HybridKemEncapsulationKey<MlKemEncap, C>
-{
+impl<K: Kem, C: Curve + CurveArithmetic> KeySizeUser for HybridKemEncapsulationKey<K, C> {
     type KeySize = Sum<Sum<<C as Curve>::FieldBytesSize, <C as Curve>::FieldBytesSize>, U1>;
 }
 
 // DecapsulationKey
 
-struct HybridKemDecapsulationKey<MlKemDecap: Decapsulator, C: Curve + CurveArithmetic> {
+struct HybridKemDecapsulationKey<K: Kem, C: Curve + CurveArithmetic> {
     seed: [u8; SEED_SIZE],
-    kem_decapsulation_key: MlKemDecap,
+    kem_decapsulation_key: K::DecapsulationKey,
     group_private_key: GroupPrivateKey<C>,
-    encapsulation_key:
-        HybridKemEncapsulationKey<<<MlKemDecap as Decapsulator>::Kem as Kem>::EncapsulationKey, C>,
+    encapsulation_key: HybridKemEncapsulationKey<K, C>,
 }
 
-impl<MlKemDecap: Decapsulator + KeyInit, C: Curve + CurveArithmetic + RandomScalar> Generate
-    for HybridKemDecapsulationKey<MlKemDecap, C>
+impl<K: Kem, C: Curve + CurveArithmetic + RandomScalar> Generate for HybridKemDecapsulationKey<K, C>
 where
-    MlKemDecap: Generate,
+    K::DecapsulationKey: KeyInit,
 {
     fn try_generate_from_rng<R: TryCryptoRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
         let seed = Array::try_generate_from_rng(rng)?;
-        Ok(HybridKemDecapsulationKey::<MlKemDecap, C>::new(&seed))
+        Ok(HybridKemDecapsulationKey::new(&seed))
     }
 }
 
-impl<MlKemDecap: Decapsulator + KeyInit, C: Curve + CurveArithmetic> KeyExport
-    for HybridKemDecapsulationKey<MlKemDecap, C>
-{
+impl<K: Kem, C: Curve + CurveArithmetic> KeyExport for HybridKemDecapsulationKey<K, C> {
     fn to_bytes(&self) -> Key<Self> {
         Array::from(self.seed)
     }
 }
 
-impl<MlKemDecap: Decapsulator + KeyInit, C: Curve + CurveArithmetic + RandomScalar> KeyInit
-    for HybridKemDecapsulationKey<MlKemDecap, C>
+impl<K: Kem, C: Curve + CurveArithmetic + RandomScalar> KeyInit for HybridKemDecapsulationKey<K, C>
+where
+    K::DecapsulationKey: KeyInit,
 {
     fn new(seed: &Key<Self>) -> Self {
-        let (dk_pq, dk_t, ek_pq, ek_t) = expand_decaps_key_g::<Shake256, _, _>(seed);
+        let (dk_pq, dk_t, ek_pq, ek_t) = expand_decaps_key_g::<Shake256, K, C>(seed);
 
         HybridKemDecapsulationKey {
             seed: seed.0,
@@ -210,25 +205,26 @@ impl<MlKemDecap: Decapsulator + KeyInit, C: Curve + CurveArithmetic + RandomScal
     }
 }
 
-impl<MlKemDecap: Decapsulator, C: Curve + CurveArithmetic> KeySizeUser
-    for HybridKemDecapsulationKey<MlKemDecap, C>
-{
+impl<K: Kem, C: Curve + CurveArithmetic> KeySizeUser for HybridKemDecapsulationKey<K, C> {
     type KeySize = U32;
 }
 
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-hybrid-kems-12.html#section-5.1.1>
 fn expand_decaps_key_g<
     PRG: Default + ExtendableOutput,
-    MlKemDecap: Decapsulator + KeyInit,
+    K: Kem,
     C: Curve + CurveArithmetic + RandomScalar,
 >(
-    seed: &Array<u8, <HybridKemDecapsulationKey<MlKemDecap, C> as KeySizeUser>::KeySize>,
+    seed: &Array<u8, <HybridKemDecapsulationKey<K, C> as KeySizeUser>::KeySize>,
 ) -> (
-    MlKemDecap,
+    K::DecapsulationKey,
     GroupPrivateKey<C>,
-    <<MlKemDecap as Decapsulator>::Kem as Kem>::EncapsulationKey,
+    K::EncapsulationKey,
     GroupPublicKey<C>,
-) {
+)
+where
+    K::DecapsulationKey: KeyInit,
+{
     // seed_full = PRG(seed)
     // (seed_PQ, seed_T) = split(KEM_PQ.Nseed, Group_T.Nseed, seed_full)
     let mut prg = PRG::default();
@@ -239,7 +235,7 @@ fn expand_decaps_key_g<
 
     // (dk_PQ, ek_PQ) = KEM_PQ.DeriveKeyPair(seed_PQ)
     seed_full.read(&mut seed_pq);
-    let dk_pq = MlKemDecap::new(&seed_pq);
+    let dk_pq = K::DecapsulationKey::new(&seed_pq);
     let ek_pq = dk_pq.encapsulation_key().clone();
 
     // dk_T = Group_T.RandomScalar(seed_T)
