@@ -36,6 +36,8 @@ use rand_core::TryCryptoRng;
 use shake::Shake256;
 use shake::digest::{ExtendableOutput, XofReader};
 
+const SEED_SIZE: usize = 32;
+
 // MlKem768P256
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
@@ -164,6 +166,7 @@ impl<MlKemEncap, C: Curve + CurveArithmetic> KeySizeUser
 // DecapsulationKey
 
 struct HybridKemDecapsulationKey<MlKemDecap: Decapsulator, C: Curve + CurveArithmetic> {
+    seed: [u8; SEED_SIZE],
     kem_decapsulation_key: MlKemDecap,
     group_private_key: GroupPrivateKey<C>,
     encapsulation_key:
@@ -176,18 +179,19 @@ where
     MlKemDecap: Generate,
 {
     fn try_generate_from_rng<R: TryCryptoRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
-        let key = Array::try_generate_from_rng(rng)?;
-        Ok(HybridKemDecapsulationKey::<MlKemDecap, C>::new(&key))
+        let seed = Array::try_generate_from_rng(rng)?;
+        Ok(HybridKemDecapsulationKey::<MlKemDecap, C>::new(&seed))
     }
 }
 
 impl<MlKemDecap: Decapsulator + KeyInit, C: Curve + CurveArithmetic + RandomScalar> KeyInit
     for HybridKemDecapsulationKey<MlKemDecap, C>
 {
-    fn new(key: &Key<Self>) -> Self {
-        let (dk_pq, dk_t, ek_pq, ek_t) = expand_decaps_key_g::<Shake256, _, _>(key);
+    fn new(seed: &Key<Self>) -> Self {
+        let (dk_pq, dk_t, ek_pq, ek_t) = expand_decaps_key_g::<Shake256, _, _>(seed);
 
         HybridKemDecapsulationKey {
+            seed: seed.0,
             kem_decapsulation_key: dk_pq,
             group_private_key: dk_t,
             encapsulation_key: HybridKemEncapsulationKey {
