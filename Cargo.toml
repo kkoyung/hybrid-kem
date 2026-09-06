@@ -1,0 +1,12 @@
+[package]
+name = "hybrid-kem"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+elliptic-curve = { version = "0.14.1", features = ["sec1"] }
+kem = "0.3.0"
+ml-kem = "0.3.2"
+p256 = "0.14.0"
+p384 = "0.14.0"
+sha3 = "0.12.0"
