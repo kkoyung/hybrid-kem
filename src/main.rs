@@ -184,6 +184,14 @@ where
     }
 }
 
+impl<MlKemDecap: Decapsulator + KeyInit, C: Curve + CurveArithmetic> KeyExport
+    for HybridKemDecapsulationKey<MlKemDecap, C>
+{
+    fn to_bytes(&self) -> Key<Self> {
+        Array::from(self.seed)
+    }
+}
+
 impl<MlKemDecap: Decapsulator + KeyInit, C: Curve + CurveArithmetic + RandomScalar> KeyInit
     for HybridKemDecapsulationKey<MlKemDecap, C>
 {
