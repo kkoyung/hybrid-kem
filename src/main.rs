@@ -1,11 +1,13 @@
 use std::fmt::Debug;
 
+use elliptic_curve::array::typenum::Unsigned;
+use elliptic_curve::bigint::CtOption;
 use elliptic_curve::point::PointCompression;
 use elliptic_curve::sec1::{FromSec1Point, ModulusSize, ToSec1Point};
 use elliptic_curve::{
-    Curve, CurveArithmetic, PublicKey as GroupPublicKey, SecretKey as GroupPrivateKey,
+    Curve, CurveArithmetic, PublicKey as GroupPublicKey, ScalarValue, SecretKey as GroupPrivateKey,
+    scalar,
 };
-use kem::Decapsulate;
 use kem::Decapsulator;
 use kem::Encapsulate;
 use kem::EncapsulationKey;
@@ -18,17 +20,21 @@ use kem::KeySizeUser;
 use kem::SharedKey;
 use kem::TryKeyInit;
 use kem::common::typenum::Sum;
-use kem::consts::U1;
+use kem::consts::{U1, U128};
 use kem::{Ciphertext, DecapsulationKey};
-use ml_kem::DecapsulationKey768 as MlKem768DecapsulationKey;
+use kem::{Decapsulate, KeyInit};
 use ml_kem::DecapsulationKey1024 as MlKem1024DecapsulationKey;
 use ml_kem::EncapsulationKey768 as MlKem768EncapsulationKey;
 use ml_kem::EncapsulationKey1024 as MlKem1024EncapsulationKey;
+use ml_kem::array::Array;
 use ml_kem::array::sizes::{U32, U1153};
+use ml_kem::{ArraySize, DecapsulationKey768 as MlKem768DecapsulationKey};
 use p256::NistP256;
-use p384::NistP384;
+use p384::{NistP384, U48};
 use rand_core::CryptoRng;
 use rand_core::TryCryptoRng;
+use shake::Shake256;
+use shake::digest::{ExtendableOutput, XofReader};
 
 // MlKem768P256
 
@@ -157,21 +163,108 @@ impl<MlKemEncap, C: Curve + CurveArithmetic> KeySizeUser
 
 // DecapsulationKey
 
-struct HybridKemDecapsulationKey<MlKemDecap, C: Curve + CurveArithmetic> {
+struct HybridKemDecapsulationKey<MlKemDecap: Decapsulator, C: Curve + CurveArithmetic> {
     kem_decapsulation_key: MlKemDecap,
     group_private_key: GroupPrivateKey<C>,
+    encapsulation_key:
+        HybridKemEncapsulationKey<<<MlKemDecap as Decapsulator>::Kem as Kem>::EncapsulationKey, C>,
 }
 
-impl<MlKemDecap, C: Curve + CurveArithmetic> Generate for HybridKemDecapsulationKey<MlKemDecap, C>
+impl<MlKemDecap: Decapsulator + KeyInit, C: Curve + CurveArithmetic + RandomScalar> Generate
+    for HybridKemDecapsulationKey<MlKemDecap, C>
 where
     MlKemDecap: Generate,
 {
     fn try_generate_from_rng<R: TryCryptoRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
-        Ok(HybridKemDecapsulationKey {
-            kem_decapsulation_key: MlKemDecap::try_generate_from_rng(rng)?,
-            group_private_key: GroupPrivateKey::try_generate_from_rng(rng)?,
-        })
+        let key = Array::try_generate_from_rng(rng)?;
+        Ok(HybridKemDecapsulationKey::<MlKemDecap, C>::new(&key))
     }
+}
+
+impl<MlKemDecap: Decapsulator + KeyInit, C: Curve + CurveArithmetic + RandomScalar> KeyInit
+    for HybridKemDecapsulationKey<MlKemDecap, C>
+{
+    fn new(key: &Key<Self>) -> Self {
+        let (dk_pq, dk_t, ek_pq, ek_t) = expand_decaps_key_g::<Shake256, _, _>(key);
+
+        HybridKemDecapsulationKey {
+            kem_decapsulation_key: dk_pq,
+            group_private_key: dk_t,
+            encapsulation_key: HybridKemEncapsulationKey {
+                kem_encapsulation_key: ek_pq,
+                group_public_key: ek_t,
+            },
+        }
+    }
+}
+
+impl<MlKemDecap: Decapsulator, C: Curve + CurveArithmetic> KeySizeUser
+    for HybridKemDecapsulationKey<MlKemDecap, C>
+{
+    type KeySize = U32;
+}
+
+/// <https://www.ietf.org/archive/id/draft-irtf-cfrg-hybrid-kems-12.html#section-5.1.1>
+fn expand_decaps_key_g<
+    PRG: Default + ExtendableOutput,
+    MlKemDecap: Decapsulator + KeyInit,
+    C: Curve + CurveArithmetic + RandomScalar,
+>(
+    seed: &Array<u8, <HybridKemDecapsulationKey<MlKemDecap, C> as KeySizeUser>::KeySize>,
+) -> (
+    MlKemDecap,
+    GroupPrivateKey<C>,
+    <<MlKemDecap as Decapsulator>::Kem as Kem>::EncapsulationKey,
+    GroupPublicKey<C>,
+) {
+    // seed_full = PRG(seed)
+    // (seed_PQ, seed_T) = split(KEM_PQ.Nseed, Group_T.Nseed, seed_full)
+    let mut prg = PRG::default();
+    prg.update(&seed.0);
+    let mut seed_full = prg.finalize_xof();
+    let mut seed_pq = Array::default();
+    let mut seed_t = Array::default();
+
+    // (dk_PQ, ek_PQ) = KEM_PQ.DeriveKeyPair(seed_PQ)
+    seed_full.read(&mut seed_pq);
+    let dk_pq = MlKemDecap::new(&seed_pq);
+    let ek_pq = dk_pq.encapsulation_key().clone();
+
+    // dk_T = Group_T.RandomScalar(seed_T)
+    // ek_T = Group_T.Exp(Group_T.g, dk_T)
+    seed_full.read(&mut seed_t);
+    let dk_t = C::random_scalar(&seed_t)
+        .expect("RandomScalar fails with cryptographically negligible probability");
+    let ek_t = dk_t.public_key();
+
+    (dk_pq, dk_t, ek_pq, ek_t)
+}
+
+/// <https://www.ietf.org/archive/id/draft-irtf-cfrg-concrete-hybrid-kems-04.html#section-3.1.1>
+trait RandomScalar: Curve {
+    type SeedSize: ArraySize;
+
+    fn random_scalar(seed: &Array<u8, Self::SeedSize>) -> Option<GroupPrivateKey<Self>> {
+        #[allow(clippy::chunks_exact_to_as_chunks)]
+        for chunk in seed.chunks_exact(Self::FieldBytesSize::USIZE) {
+            if let Some(private_key) = Array::try_from(chunk)
+                .ok()
+                .and_then(|bytes| ScalarValue::from_bytes(&bytes).into_option())
+                .and_then(|scalar| GroupPrivateKey::from_scalar(scalar).into_option())
+            {
+                return Some(private_key);
+            }
+        }
+        None
+    }
+}
+
+impl RandomScalar for NistP256 {
+    type SeedSize = U128;
+}
+
+impl RandomScalar for NistP384 {
+    type SeedSize = U48;
 }
 
 fn main() {}
