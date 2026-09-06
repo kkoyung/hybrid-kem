@@ -63,7 +63,7 @@ impl Decapsulator for HybridKemDecapsulationKey<MlKem768DecapsulationKey, NistP2
     type Kem = MlKem768P256;
 
     fn encapsulation_key(&self) -> &EncapsulationKey<Self::Kem> {
-        todo!()
+        &self.encapsulation_key
     }
 }
 
@@ -100,7 +100,7 @@ impl Decapsulator for HybridKemDecapsulationKey<MlKem1024DecapsulationKey, NistP
     type Kem = MlKem1024P384;
 
     fn encapsulation_key(&self) -> &EncapsulationKey<Self::Kem> {
-        todo!()
+        &self.encapsulation_key
     }
 }
 
