@@ -115,12 +115,12 @@ impl Decapsulate for HybridKemDecapsulationKey<MlKem1024, NistP384> {
 // EncapsulationKey
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct HybridKemEncapsulationKey<K: Kem, C: Curve + CurveArithmetic> {
+struct HybridKemEncapsulationKey<K: Kem, C: CurveArithmetic> {
     kem_encapsulation_key: K::EncapsulationKey,
     group_public_key: GroupPublicKey<C>,
 }
 
-impl<K: Kem, C: Curve + CurveArithmetic> KeyExport for HybridKemEncapsulationKey<K, C>
+impl<K: Kem, C: CurveArithmetic> KeyExport for HybridKemEncapsulationKey<K, C>
 where
     C: PointCompression,
     <C as Curve>::FieldBytesSize: ModulusSize,
@@ -135,7 +135,7 @@ where
     }
 }
 
-impl<K: Kem, C: Curve + CurveArithmetic> TryKeyInit for HybridKemEncapsulationKey<K, C>
+impl<K: Kem, C: CurveArithmetic> TryKeyInit for HybridKemEncapsulationKey<K, C>
 where
     <C as Curve>::FieldBytesSize: ModulusSize,
     <C as CurveArithmetic>::AffinePoint: FromSec1Point<C> + ToSec1Point<C>,
@@ -157,20 +157,20 @@ where
     }
 }
 
-impl<K: Kem, C: Curve + CurveArithmetic> KeySizeUser for HybridKemEncapsulationKey<K, C> {
+impl<K: Kem, C: CurveArithmetic> KeySizeUser for HybridKemEncapsulationKey<K, C> {
     type KeySize = Sum<Sum<<C as Curve>::FieldBytesSize, <C as Curve>::FieldBytesSize>, U1>;
 }
 
 // DecapsulationKey
 
-struct HybridKemDecapsulationKey<K: Kem, C: Curve + CurveArithmetic> {
+struct HybridKemDecapsulationKey<K: Kem, C: CurveArithmetic> {
     seed: [u8; SEED_SIZE],
     kem_decapsulation_key: K::DecapsulationKey,
     group_private_key: GroupPrivateKey<C>,
     encapsulation_key: HybridKemEncapsulationKey<K, C>,
 }
 
-impl<K: Kem, C: Curve + CurveArithmetic + RandomScalar> Generate for HybridKemDecapsulationKey<K, C>
+impl<K: Kem, C: CurveArithmetic + RandomScalar> Generate for HybridKemDecapsulationKey<K, C>
 where
     K::DecapsulationKey: KeyInit,
 {
@@ -180,13 +180,13 @@ where
     }
 }
 
-impl<K: Kem, C: Curve + CurveArithmetic> KeyExport for HybridKemDecapsulationKey<K, C> {
+impl<K: Kem, C: CurveArithmetic> KeyExport for HybridKemDecapsulationKey<K, C> {
     fn to_bytes(&self) -> Key<Self> {
         Array::from(self.seed)
     }
 }
 
-impl<K: Kem, C: Curve + CurveArithmetic + RandomScalar> KeyInit for HybridKemDecapsulationKey<K, C>
+impl<K: Kem, C: CurveArithmetic + RandomScalar> KeyInit for HybridKemDecapsulationKey<K, C>
 where
     K::DecapsulationKey: KeyInit,
 {
@@ -205,16 +205,12 @@ where
     }
 }
 
-impl<K: Kem, C: Curve + CurveArithmetic> KeySizeUser for HybridKemDecapsulationKey<K, C> {
+impl<K: Kem, C: CurveArithmetic> KeySizeUser for HybridKemDecapsulationKey<K, C> {
     type KeySize = U32;
 }
 
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-hybrid-kems-12.html#section-5.1.1>
-fn expand_decaps_key_g<
-    PRG: Default + ExtendableOutput,
-    K: Kem,
-    C: Curve + CurveArithmetic + RandomScalar,
->(
+fn expand_decaps_key_g<PRG: Default + ExtendableOutput, K: Kem, C: CurveArithmetic + RandomScalar>(
     seed: &Array<u8, <HybridKemDecapsulationKey<K, C> as KeySizeUser>::KeySize>,
 ) -> (
     K::DecapsulationKey,
