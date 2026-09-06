@@ -3,13 +3,18 @@ use std::fmt::Debug;
 use elliptic_curve::{
     Curve, CurveArithmetic, PublicKey as GroupPublicKey, SecretKey as GroupPrivateKey,
 };
+use kem::Ciphertext;
 use kem::Decapsulate;
 use kem::Decapsulator;
 use kem::Encapsulate;
+use kem::EncapsulationKey;
 use kem::Generate;
+use kem::InvalidKey;
 use kem::Kem;
+use kem::Key;
 use kem::KeyExport;
 use kem::KeySizeUser;
+use kem::SharedKey;
 use kem::TryKeyInit;
 use kem::common::typenum::Sum;
 use kem::consts::U1;
@@ -20,6 +25,8 @@ use ml_kem::EncapsulationKey1024 as MlKem1024EncapsulationKey;
 use ml_kem::array::sizes::{U32, U1153};
 use p256::NistP256;
 use p384::NistP384;
+use rand_core::CryptoRng;
+use rand_core::TryCryptoRng;
 
 // MlKem768P256
 
@@ -36,12 +43,9 @@ impl Kem for MlKem768P256 {
 impl Encapsulate for HybridKemEncapsulationKey<MlKem768EncapsulationKey, NistP256> {
     type Kem = MlKem768P256;
 
-    fn encapsulate_with_rng<R>(
-        &self,
-        rng: &mut R,
-    ) -> (kem::Ciphertext<Self::Kem>, kem::SharedKey<Self::Kem>)
+    fn encapsulate_with_rng<R>(&self, rng: &mut R) -> (Ciphertext<Self::Kem>, SharedKey<Self::Kem>)
     where
-        R: elliptic_curve::rand_core::CryptoRng + ?Sized,
+        R: CryptoRng + ?Sized,
     {
         todo!()
     }
@@ -50,13 +54,13 @@ impl Encapsulate for HybridKemEncapsulationKey<MlKem768EncapsulationKey, NistP25
 impl Decapsulator for HybridKemDecapsulationKey<MlKem768DecapsulationKey, NistP256> {
     type Kem = MlKem768P256;
 
-    fn encapsulation_key(&self) -> &kem::EncapsulationKey<Self::Kem> {
+    fn encapsulation_key(&self) -> &EncapsulationKey<Self::Kem> {
         todo!()
     }
 }
 
 impl Decapsulate for HybridKemDecapsulationKey<MlKem768DecapsulationKey, NistP256> {
-    fn decapsulate(&self, ct: &kem::Ciphertext<Self::Kem>) -> kem::SharedKey<Self::Kem> {
+    fn decapsulate(&self, ct: &Ciphertext<Self::Kem>) -> SharedKey<Self::Kem> {
         todo!()
     }
 }
@@ -76,12 +80,9 @@ impl Kem for MlKem1024P384 {
 impl Encapsulate for HybridKemEncapsulationKey<MlKem1024EncapsulationKey, NistP384> {
     type Kem = MlKem1024P384;
 
-    fn encapsulate_with_rng<R>(
-        &self,
-        rng: &mut R,
-    ) -> (kem::Ciphertext<Self::Kem>, kem::SharedKey<Self::Kem>)
+    fn encapsulate_with_rng<R>(&self, rng: &mut R) -> (Ciphertext<Self::Kem>, SharedKey<Self::Kem>)
     where
-        R: elliptic_curve::rand_core::CryptoRng + ?Sized,
+        R: CryptoRng + ?Sized,
     {
         todo!()
     }
@@ -90,13 +91,13 @@ impl Encapsulate for HybridKemEncapsulationKey<MlKem1024EncapsulationKey, NistP3
 impl Decapsulator for HybridKemDecapsulationKey<MlKem1024DecapsulationKey, NistP384> {
     type Kem = MlKem1024P384;
 
-    fn encapsulation_key(&self) -> &kem::EncapsulationKey<Self::Kem> {
+    fn encapsulation_key(&self) -> &EncapsulationKey<Self::Kem> {
         todo!()
     }
 }
 
 impl Decapsulate for HybridKemDecapsulationKey<MlKem1024DecapsulationKey, NistP384> {
-    fn decapsulate(&self, ct: &kem::Ciphertext<Self::Kem>) -> kem::SharedKey<Self::Kem> {
+    fn decapsulate(&self, ct: &Ciphertext<Self::Kem>) -> SharedKey<Self::Kem> {
         todo!()
     }
 }
@@ -112,7 +113,7 @@ struct HybridKemEncapsulationKey<MlKemEncap, C: Curve + CurveArithmetic> {
 impl<MlKemEncap, C: Curve + CurveArithmetic> KeyExport
     for HybridKemEncapsulationKey<MlKemEncap, C>
 {
-    fn to_bytes(&self) -> kem::Key<Self> {
+    fn to_bytes(&self) -> Key<Self> {
         todo!()
     }
 }
@@ -120,7 +121,7 @@ impl<MlKemEncap, C: Curve + CurveArithmetic> KeyExport
 impl<MlKemEncap, C: Curve + CurveArithmetic> TryKeyInit
     for HybridKemEncapsulationKey<MlKemEncap, C>
 {
-    fn new(key: &kem::Key<Self>) -> Result<Self, kem::InvalidKey> {
+    fn new(key: &Key<Self>) -> Result<Self, InvalidKey> {
         todo!()
     }
 }
@@ -139,9 +140,7 @@ struct HybridKemDecapsulationKey<MlKemDecap, C: Curve + CurveArithmetic> {
 }
 
 impl<MlKemDecap, C: Curve + CurveArithmetic> Generate for HybridKemDecapsulationKey<MlKemDecap, C> {
-    fn try_generate_from_rng<R: elliptic_curve::rand_core::TryCryptoRng + ?Sized>(
-        rng: &mut R,
-    ) -> Result<Self, R::Error> {
+    fn try_generate_from_rng<R: TryCryptoRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
         todo!()
     }
 }
