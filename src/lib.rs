@@ -19,6 +19,7 @@ use kem::KeyInit;
 use kem::KeySizeUser;
 use kem::SharedKey;
 use kem::TryKeyInit;
+use kem::common::OutputSizeUser;
 use kem::common::typenum::Sum;
 use kem::consts::{U1, U128};
 use kem::{Ciphertext, TryDecapsulate};
@@ -26,14 +27,14 @@ use ml_kem::ArraySize;
 use ml_kem::MlKem768;
 use ml_kem::MlKem1024;
 use ml_kem::array::Array;
-use ml_kem::array::sizes::{U32, U1153};
+use ml_kem::array::sizes::{U32, U1153, U1249, U1665};
 use p256::NistP256;
 use p384::{NistP384, U48};
 use rand_core::CryptoRng;
 use rand_core::TryCryptoRng;
 use sha3::{Digest, Sha3_256};
-use shake::Shake256;
 use shake::digest::{ExtendableOutput, XofReader};
+use shake::{Shake256, Update};
 
 #[cfg(test)]
 mod tests;
@@ -254,74 +255,121 @@ impl core::error::Error for DecapsulationError {}
 //     }
 // }
 
-/// EncapsulationKey
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct HybridKemEncapsulationKey<K: Kem, C: CurveArithmetic> {
-    kem_encapsulation_key: K::EncapsulationKey,
-    group_public_key: GroupPublicKey<C>,
+trait HybridKemParameter {
+    type GroupT: Curve + CurveArithmetic + PointCompression + RandomScalar;
+    type KemPQ: Kem;
+    type PRG: Default + Update + ExtendableOutput;
+    type KDF: Default + Digest;
+
+    type SeedSize: ArraySize;
+    type EncapsulationKeySize: ArraySize;
+    type DecapsulationKeySize: ArraySize;
+    type CiphertextSize: ArraySize;
+    type SharedSecretSize: ArraySize;
 }
 
-impl<K: Kem, C: CurveArithmetic + PointCompression> KeyExport for HybridKemEncapsulationKey<K, C>
+struct MlKem768P256 {}
+
+impl HybridKemParameter for MlKem768P256 {
+    type GroupT = NistP256;
+    type KemPQ = MlKem768;
+    type PRG = Shake256;
+    type KDF = Sha3_256;
+
+    type SeedSize = U32;
+    type EncapsulationKeySize = U1249;
+    type DecapsulationKeySize = U32;
+    type CiphertextSize = U1153;
+    type SharedSecretSize = U32;
+}
+
+struct MlKem1024P384 {}
+
+impl HybridKemParameter for MlKem1024P384 {
+    type GroupT = NistP384;
+    type KemPQ = MlKem1024;
+    type PRG = Shake256;
+    type KDF = Sha3_256;
+
+    type SeedSize = U32;
+    type EncapsulationKeySize = U1665;
+    type DecapsulationKeySize = U32;
+    type CiphertextSize = U1665;
+    type SharedSecretSize = U32;
+}
+
+/// EncapsulationKey
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct HybridKemEncapsulationKey<H: HybridKemParameter> {
+    encapsulation_key_pq: <H::KemPQ as Kem>::EncapsulationKey,
+    encapsulation_key_t: GroupPublicKey<H::GroupT>,
+}
+
+impl<H: HybridKemParameter> KeyExport for HybridKemEncapsulationKey<H>
 where
-    <C as Curve>::FieldBytesSize: ModulusSize,
-    <C as CurveArithmetic>::AffinePoint: FromSec1Point<C> + ToSec1Point<C>,
+    <H::GroupT as Curve>::FieldBytesSize: ModulusSize,
+    <H::GroupT as CurveArithmetic>::AffinePoint: FromSec1Point<H::GroupT> + ToSec1Point<H::GroupT>,
 {
     fn to_bytes(&self) -> Key<Self> {
-        let mut key = Key::<Self>::default();
-        let (kem_bytes, group_bytes) = key.split_at_mut(K::EncapsulationKey::key_size());
-        kem_bytes.copy_from_slice(&self.kem_encapsulation_key.to_bytes());
-        group_bytes.copy_from_slice(&self.group_public_key.to_sec1_bytes());
-        key
+        let mut bytes = Key::<Self>::default();
+        let (bytes_pq, bytes_t) =
+            bytes.split_at_mut(<H::KemPQ as Kem>::EncapsulationKey::key_size());
+        bytes_pq.copy_from_slice(&self.encapsulation_key_pq.to_bytes());
+        bytes_t.copy_from_slice(&self.encapsulation_key_t.to_sec1_bytes());
+        bytes
     }
 }
 
-impl<K: Kem, C: CurveArithmetic> TryKeyInit for HybridKemEncapsulationKey<K, C>
+impl<H: HybridKemParameter> TryKeyInit for HybridKemEncapsulationKey<H>
 where
-    <C as Curve>::FieldBytesSize: ModulusSize,
-    <C as CurveArithmetic>::AffinePoint: FromSec1Point<C> + ToSec1Point<C>,
+    <H::GroupT as Curve>::FieldBytesSize: ModulusSize,
+    <H::GroupT as CurveArithmetic>::AffinePoint: FromSec1Point<H::GroupT> + ToSec1Point<H::GroupT>,
 {
     fn new(key: &Key<Self>) -> Result<Self, InvalidKey> {
-        let kem_bytes = key
-            .get(..K::EncapsulationKey::key_size())
+        let bytes_pq = key
+            .get(..<H::KemPQ as Kem>::EncapsulationKey::key_size())
             .ok_or(InvalidKey)?;
-        let group_bytes = key
-            .get(K::EncapsulationKey::key_size()..)
+        let bytes_t = key
+            .get(<H::KemPQ as Kem>::EncapsulationKey::key_size()..)
             .ok_or(InvalidKey)?;
-        let kem_encapsulation_key = K::EncapsulationKey::new_from_slice(kem_bytes)?;
-        let group_public_key =
-            GroupPublicKey::<C>::from_sec1_bytes(group_bytes).map_err(|_| InvalidKey)?;
+        let encapsulation_key_pq = <H::KemPQ as Kem>::EncapsulationKey::new_from_slice(bytes_pq)?;
+        let encapsulation_key_t =
+            GroupPublicKey::<H::GroupT>::from_sec1_bytes(bytes_t).map_err(|_| InvalidKey)?;
         Ok(HybridKemEncapsulationKey {
-            kem_encapsulation_key,
-            group_public_key,
+            encapsulation_key_pq,
+            encapsulation_key_t,
         })
     }
 }
 
-impl<K: Kem, C: CurveArithmetic> KeySizeUser for HybridKemEncapsulationKey<K, C> {
-    type KeySize = Sum<Sum<<C as Curve>::FieldBytesSize, <C as Curve>::FieldBytesSize>, U1>;
+impl<H: HybridKemParameter> KeySizeUser for HybridKemEncapsulationKey<H> {
+    type KeySize = H::EncapsulationKeySize;
 }
 
 /// DecapsulationKey
-struct HybridKemDecapsulationKey<K: Kem, C: CurveArithmetic> {
-    seed: [u8; SEED_SIZE],
-    kem_decapsulation_key: K::DecapsulationKey,
-    group_private_key: GroupPrivateKey<C>,
-    encapsulation_key: HybridKemEncapsulationKey<K, C>,
+struct HybridKemDecapsulationKey<H: HybridKemParameter> {
+    seed: Array<u8, H::DecapsulationKeySize>,
+    decapsulation_key_pq: <H::KemPQ as Kem>::DecapsulationKey,
+    decapsulation_key_t: GroupPrivateKey<H::GroupT>,
+    encapsulation_key: HybridKemEncapsulationKey<H>,
 }
 
-impl<K: Kem + KeySizeUser, C: CurveArithmetic + RandomScalar> HybridKemDecapsulationKey<K, C>
+impl<H: HybridKemParameter> HybridKemDecapsulationKey<H>
 where
-    K::DecapsulationKey: KeyInit,
+    <H::KemPQ as Kem>::DecapsulationKey: KeyInit,
 {
     /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-5.5>
     ///
     /// def DeriveKeyPair(seed):
     #[expect(clippy::type_complexity)]
     fn derive_key_pair(
-        seed: &Array<u8, <HybridKemDecapsulationKey<K, C> as KeySizeUser>::KeySize>,
+        seed: &Array<u8, H::DecapsulationKeySize>,
     ) -> (
-        &Array<u8, <HybridKemDecapsulationKey<K, C> as KeySizeUser>::KeySize>,
-        (<K as Kem>::EncapsulationKey, GroupPublicKey<C>),
+        &Array<u8, H::DecapsulationKeySize>,
+        (
+            <H::KemPQ as Kem>::EncapsulationKey,
+            GroupPublicKey<H::GroupT>,
+        ),
     ) {
         // (ek_PQ, ek_T, dk_PQ, dk_T) = expandDecapsKeyG(seed)
         let (
@@ -329,16 +377,16 @@ where
             encapsulation_key_t,
             _decapsulation_key_pq,
             _decapsulation_key_t,
-        ) = expand_decaps_key_g::<K, C, Shake256>(seed);
+        ) = expand_decaps_key_g::<H>(seed);
 
         // return (seed, concat(ek_PQ, ek_T))
         (seed, (encapsulation_key_pq, encapsulation_key_t))
     }
 }
 
-impl<K: Kem, C: CurveArithmetic + RandomScalar> Generate for HybridKemDecapsulationKey<K, C>
+impl<H: HybridKemParameter> Generate for HybridKemDecapsulationKey<H>
 where
-    K::DecapsulationKey: KeyInit,
+    <H::KemPQ as Kem>::DecapsulationKey: KeyInit,
 {
     fn try_generate_from_rng<R: TryCryptoRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
         let seed = Array::try_generate_from_rng(rng)?;
@@ -346,34 +394,34 @@ where
     }
 }
 
-impl<K: Kem, C: CurveArithmetic> KeyExport for HybridKemDecapsulationKey<K, C> {
+impl<H: HybridKemParameter> KeyExport for HybridKemDecapsulationKey<H> {
     fn to_bytes(&self) -> Key<Self> {
-        Array::from(self.seed)
+        self.seed.clone()
     }
 }
 
-impl<K: Kem, C: CurveArithmetic + RandomScalar> KeyInit for HybridKemDecapsulationKey<K, C>
+impl<H: HybridKemParameter> KeyInit for HybridKemDecapsulationKey<H>
 where
-    K::DecapsulationKey: KeyInit,
+    <H::KemPQ as Kem>::DecapsulationKey: KeyInit,
 {
     fn new(seed: &Key<Self>) -> Self {
-        let (kem_encapsulation_key, group_public_key, kem_decapsulation_key, group_private_key) =
-            expand_decaps_key_g::<K, C, Shake256>(seed);
+        let (encapsulation_key_pq, encapsulation_key_t, decapsulation_key_pq, decapsulation_key_t) =
+            expand_decaps_key_g::<H>(seed);
 
         HybridKemDecapsulationKey {
-            seed: seed.0,
-            kem_decapsulation_key,
-            group_private_key,
+            seed: seed.clone(),
+            decapsulation_key_pq,
+            decapsulation_key_t,
             encapsulation_key: HybridKemEncapsulationKey {
-                kem_encapsulation_key,
-                group_public_key,
+                encapsulation_key_pq,
+                encapsulation_key_t,
             },
         }
     }
 }
 
-impl<K: Kem, C: CurveArithmetic> KeySizeUser for HybridKemDecapsulationKey<K, C> {
-    type KeySize = U32;
+impl<H: HybridKemParameter> KeySizeUser for HybridKemDecapsulationKey<H> {
+    type KeySize = H::DecapsulationKeySize;
 }
 
 trait RandomScalar: Curve {
@@ -419,19 +467,19 @@ impl RandomScalar for NistP384 {
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-hybrid-kems-12.html#section-5.1.1>
 ///
 /// def expandDecapsKeyG(seed):
-fn expand_decaps_key_g<K: Kem, C: CurveArithmetic + RandomScalar, PRG: Default + ExtendableOutput>(
-    seed: &Array<u8, <HybridKemDecapsulationKey<K, C> as KeySizeUser>::KeySize>,
+fn expand_decaps_key_g<H: HybridKemParameter>(
+    seed: &Array<u8, H::DecapsulationKeySize>,
 ) -> (
-    K::EncapsulationKey,
-    GroupPublicKey<C>,
-    K::DecapsulationKey,
-    GroupPrivateKey<C>,
+    <H::KemPQ as Kem>::EncapsulationKey,
+    GroupPublicKey<H::GroupT>,
+    <H::KemPQ as Kem>::DecapsulationKey,
+    GroupPrivateKey<H::GroupT>,
 )
 where
-    K::DecapsulationKey: KeyInit,
+    <H::KemPQ as Kem>::DecapsulationKey: KeyInit,
 {
     // seed_full = PRG(seed)
-    let mut prg = PRG::default();
+    let mut prg = H::PRG::default();
     prg.update(&seed);
     let mut seed_full = prg.finalize_xof();
 
@@ -442,11 +490,11 @@ where
     seed_full.read(&mut seed_t);
 
     // (dk_PQ, ek_PQ) = KEM_PQ.DeriveKeyPair(seed_PQ)
-    let decapsulation_key_pq = K::DecapsulationKey::new(&seed_pq);
+    let decapsulation_key_pq = <H::KemPQ as Kem>::DecapsulationKey::new(&seed_pq);
     let encapsulation_key_pq = decapsulation_key_pq.encapsulation_key().clone();
 
     // dk_T = Group_T.RandomScalar(seed_T)
-    let decapsulation_key_t = C::random_scalar(&seed_t)
+    let decapsulation_key_t = H::GroupT::random_scalar(&seed_t)
         .expect("RandomScalar fails with cryptographically negligible probability");
 
     // ek_T = Group_T.Exp(Group_T.g, dk_T)
@@ -465,28 +513,28 @@ where
 ///
 /// def prepareEncapsG(ek_PQ, ek_T):
 #[expect(clippy::type_complexity)]
-fn prepare_encaps_g<K: Kem, C: CurveArithmetic, R: CryptoRng + ?Sized>(
-    encapsulation_key_pq: &K::EncapsulationKey,
-    encapsulation_key_t: &GroupPublicKey<C>,
+fn prepare_encaps_g<H: HybridKemParameter, R: CryptoRng + ?Sized>(
+    encapsulation_key_pq: &<H::KemPQ as Kem>::EncapsulationKey,
+    encapsulation_key_t: &GroupPublicKey<H::GroupT>,
     rng: &mut R,
 ) -> (
-    Array<u8, K::SharedKeySize>,
-    Array<u8, C::FieldBytesSize>,
-    Array<u8, K::CiphertextSize>,
-    GroupPublicKey<C>,
+    Array<u8, <H::KemPQ as Kem>::SharedKeySize>,
+    Array<u8, <H::GroupT as Curve>::FieldBytesSize>,
+    Array<u8, <H::KemPQ as Kem>::CiphertextSize>,
+    GroupPublicKey<H::GroupT>,
 ) {
     // (ss_PQ, ct_PQ) = KEM_PQ.Encaps(ek_PQ)
     let (ciphertext_pq, shared_secret_pq) = encapsulation_key_pq.encapsulate_with_rng(rng);
 
     // sk_E = Group_T.RandomScalar(random(Group_T.Nseed))
-    let secret_key_e = GroupPrivateKey::<C>::generate_from_rng(rng);
+    let secret_key_e = GroupPrivateKey::<H::GroupT>::generate_from_rng(rng);
 
     // ct_T = Group_T.Exp(Group_T.g, sk_E)
     let ciphertext_t = secret_key_e.public_key();
 
     // ss_T = Group_T.ElementToSharedSecret(Group_T.Exp(ek_T, sk_E))
     let shared_secret_t =
-        element_to_shared_secret(secret_key_e.diffie_hellman(encapsulation_key_t));
+        element_to_shared_secret::<H>(secret_key_e.diffie_hellman(encapsulation_key_t));
 
     // return (ss_PQ, ss_T, ct_PQ, ct_T)
     (
@@ -501,21 +549,24 @@ fn prepare_encaps_g<K: Kem, C: CurveArithmetic, R: CryptoRng + ?Sized>(
 ///
 /// def prepareDecapsG(ct_PQ, ct_T, dk_PQ, dk_T):
 #[expect(clippy::type_complexity)]
-fn prepare_decaps_g<K: Kem, C: CurveArithmetic>(
-    ciphertext_pq: &Array<u8, K::CiphertextSize>,
-    ciphertext_t: &GroupPublicKey<C>,
-    decapsulation_key_pq: &K::DecapsulationKey,
-    decapsulation_key_t: &GroupPrivateKey<C>,
+fn prepare_decaps_g<H: HybridKemParameter>(
+    ciphertext_pq: &Array<u8, <H::KemPQ as Kem>::CiphertextSize>,
+    ciphertext_t: &GroupPublicKey<H::GroupT>,
+    decapsulation_key_pq: &<H::KemPQ as Kem>::DecapsulationKey,
+    decapsulation_key_t: &GroupPrivateKey<H::GroupT>,
 ) -> Result<
-    (Array<u8, K::SharedKeySize>, Array<u8, C::FieldBytesSize>),
-    <K::DecapsulationKey as TryDecapsulate>::Error,
+    (
+        Array<u8, <H::KemPQ as Kem>::SharedKeySize>,
+        Array<u8, <H::GroupT as Curve>::FieldBytesSize>,
+    ),
+    <<H::KemPQ as Kem>::DecapsulationKey as TryDecapsulate>::Error,
 > {
     // ss_PQ = KEM_PQ.Decaps(dk_PQ, ct_PQ)
     let shared_secret_pq = decapsulation_key_pq.try_decapsulate(ciphertext_pq)?;
 
     // ss_T = Group_T.ElementToSharedSecret(Group_T.Exp(ct_T, dk_T))
     let shared_secret_t =
-        element_to_shared_secret::<C>(decapsulation_key_t.diffie_hellman(ciphertext_t));
+        element_to_shared_secret::<H>(decapsulation_key_t.diffie_hellman(ciphertext_t));
 
     // return (ss_PQ, ss_T)
     Ok((shared_secret_pq, shared_secret_t))
@@ -524,19 +575,19 @@ fn prepare_decaps_g<K: Kem, C: CurveArithmetic>(
 /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-5.1.3>
 ///
 /// def C2PRICombiner(ss_PQ, ss_T, ct_T, ek_T, label):
-fn c2pri_combiner<K: Kem, C: CurveArithmetic + PointCompression, KDF: Default + Digest>(
-    shared_secret_pq: &SharedKey<K>,
-    shared_secret_t: &SharedSecret<C>,
-    ciphertext_t: &GroupPublicKey<C>,
-    encapsulation_t: &GroupPublicKey<C>,
+fn c2pri_combiner<H: HybridKemParameter>(
+    shared_secret_pq: &SharedKey<H::KemPQ>,
+    shared_secret_t: &SharedSecret<H::GroupT>,
+    ciphertext_t: &GroupPublicKey<H::GroupT>,
+    encapsulation_t: &GroupPublicKey<H::GroupT>,
     label: &[u8],
-) -> Array<u8, KDF::OutputSize>
+) -> Array<u8, <H::KDF as OutputSizeUser>::OutputSize>
 where
-    <C as Curve>::FieldBytesSize: ModulusSize,
-    <C as CurveArithmetic>::AffinePoint: FromSec1Point<C> + ToSec1Point<C>,
+    <H::GroupT as Curve>::FieldBytesSize: ModulusSize,
+    <H::GroupT as CurveArithmetic>::AffinePoint: FromSec1Point<H::GroupT> + ToSec1Point<H::GroupT>,
 {
     // return KDF(concat(ss_PQ, ss_T, ct_T, ek_T, label))
-    let mut hasher = KDF::default();
+    let mut hasher = H::KDF::default();
     hasher.update(shared_secret_pq);
     hasher.update(shared_secret_t.raw_secret_bytes());
     hasher.update(ciphertext_t.to_sec1_bytes());
@@ -549,8 +600,10 @@ where
 ///
 /// ElementToSharedSecret(P) -> ss: Extract a shared secret from an element of the group (e.g., by
 /// taking the X coordinate of an elliptic curve point).
-fn element_to_shared_secret<C: Curve>(p: SharedSecret<C>) -> Array<u8, C::FieldBytesSize> {
-    p.raw_secret_bytes().clone()
+fn element_to_shared_secret<H: HybridKemParameter>(
+    p: SharedSecret<H::GroupT>,
+) -> Array<u8, <H::GroupT as Curve>::FieldBytesSize> {
+    *p.raw_secret_bytes()
 }
 
 // seed: seed
