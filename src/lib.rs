@@ -365,9 +365,10 @@ impl<H: HybridKemParameter + Kem> Encapsulate for HybridKemEncapsulationKey<H> {
 
         // ct_H = concat(ct_PQ, ct_T)
         let mut ciphertext_h = Array::default();
-        ciphertext_h[..<H::KemPQ as Kem>::CiphertextSize::USIZE].copy_from_slice(&ciphertext_pq);
-        ciphertext_h[<H::KemPQ as Kem>::CiphertextSize::USIZE..]
-            .copy_from_slice(&ciphertext_t.to_sec1_bytes());
+        let (ciphertext_h_left, ciphertext_h_right) =
+            ciphertext_h.split_at_mut(<H::KemPQ as Kem>::CiphertextSize::USIZE);
+        ciphertext_h_left.copy_from_slice(&ciphertext_pq);
+        ciphertext_h_right.copy_from_slice(&ciphertext_t.to_sec1_bytes());
 
         // return (ss_H, ct_H)
         (
@@ -391,12 +392,7 @@ impl<H: HybridKemParameter> KeyExport for HybridKemEncapsulationKey<H> {
 
 impl<H: HybridKemParameter> TryKeyInit for HybridKemEncapsulationKey<H> {
     fn new(key: &Key<Self>) -> Result<Self, InvalidKey> {
-        let bytes_pq = key
-            .get(..<H::KemPQ as Kem>::EncapsulationKey::key_size())
-            .ok_or(InvalidKey)?;
-        let bytes_t = key
-            .get(<H::KemPQ as Kem>::EncapsulationKey::key_size()..)
-            .ok_or(InvalidKey)?;
+        let (bytes_pq, bytes_t) = key.split_at(<H::KemPQ as Kem>::EncapsulationKey::key_size());
         let encapsulation_key_pq = <H::KemPQ as Kem>::EncapsulationKey::new_from_slice(bytes_pq)?;
         let encapsulation_key_t =
             GroupPublicKey::<H::GroupT>::from_sec1_bytes(bytes_t).map_err(|_| InvalidKey)?;
