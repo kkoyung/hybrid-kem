@@ -20,8 +20,7 @@ use kem::KeySizeUser;
 use kem::SharedKey;
 use kem::TryKeyInit;
 use kem::common::OutputSizeUser;
-use kem::common::typenum::Sum;
-use kem::consts::{U1, U128};
+use kem::consts::U128;
 use kem::{Ciphertext, TryDecapsulate};
 use ml_kem::ArraySize;
 use ml_kem::MlKem768;
@@ -50,206 +49,6 @@ impl core::fmt::Display for DecapsulationError {
 }
 
 impl core::error::Error for DecapsulationError {}
-
-// /// MlKem768P256
-// #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
-// struct MlKem768P256 {}
-//
-// impl Kem for MlKem768P256 {
-//     type DecapsulationKey = HybridKemDecapsulationKey<MlKem768, NistP256>;
-//     type EncapsulationKey = HybridKemEncapsulationKey<MlKem768, NistP256>;
-//     type SharedKeySize = U32;
-//     type CiphertextSize = U1153;
-// }
-//
-// impl Encapsulate for HybridKemEncapsulationKey<MlKem768, NistP256> {
-//     type Kem = MlKem768P256;
-//
-//     /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-5.5>
-//     ///
-//     /// def Encaps(ek):
-//     fn encapsulate_with_rng<R>(&self, rng: &mut R) -> (Ciphertext<Self::Kem>, SharedKey<Self::Kem>)
-//     where
-//         R: CryptoRng + ?Sized,
-//     {
-//         // (ek_PQ, ek_T) = split(KEM_PQ.Nek, Group_T.Nelem, ek)
-//         // (ss_PQ, ss_T, ct_PQ, ct_T) = prepareEncapsG(ek_PQ, ek_T)
-//         let (kem_shared_key, group_shared_secret, kem_ciphertext, group_ciphertext) =
-//             prepare_encaps_g(self, rng);
-//
-//         // ss_H = C2PRICombiner(ss_PQ, ss_T, ct_T, ek_T, Label)
-//         let secret_key = c2pri_combiner::<MlKem768, NistP256, Sha3_256>(
-//             &kem_shared_key,
-//             &group_shared_secret,
-//             &group_ciphertext,
-//             &self.group_public_key,
-//             ML_KEM768_P256_LABEL,
-//         );
-//
-//         // ct_H = concat(ct_PQ, ct_T)
-//         let mut ciphertext = Ciphertext::<MlKem768P256>::default();
-//         ciphertext[..<MlKem768 as Kem>::CiphertextSize::USIZE].copy_from_slice(&kem_ciphertext);
-//         ciphertext[<MlKem768 as Kem>::CiphertextSize::USIZE..]
-//             .copy_from_slice(&group_ciphertext.to_sec1_bytes());
-//
-//         // return (ss_H, ct_H)
-//         (ciphertext, secret_key)
-//     }
-// }
-//
-// impl Decapsulator for HybridKemDecapsulationKey<MlKem768, NistP256> {
-//     type Kem = MlKem768P256;
-//
-//     fn encapsulation_key(&self) -> &EncapsulationKey<Self::Kem> {
-//         &self.encapsulation_key
-//     }
-// }
-//
-// impl TryDecapsulate for HybridKemDecapsulationKey<MlKem768, NistP256> {
-//     type Error = DecapsulationError;
-//
-//     /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-5.5>
-//     ///
-//     /// def Decaps(dk, ct):
-//     fn try_decapsulate(
-//         &self,
-//         ciphertext: &Ciphertext<Self::Kem>,
-//     ) -> Result<SharedKey<Self::Kem>, Self::Error> {
-//         // (ct_PQ, ct_T) = split(KEM_PQ.Nct, Group_T.Nelem, ct)
-//         let kem_ciphertext =
-//             Array::slice_as_array(&ciphertext[..<MlKem768 as Kem>::CiphertextSize::USIZE])
-//                 .ok_or(DecapsulationError)?;
-//         let group_ciphertext = &GroupPublicKey::from_sec1_bytes(
-//             &ciphertext[<MlKem768 as Kem>::CiphertextSize::USIZE..],
-//         )
-//         .map_err(|_| DecapsulationError)?;
-//
-//         // (ek_PQ, ek_T, dk_PQ, dk_T) = expandDecapsKeyG(dk)
-//         let (_kem_encapsulation_key, group_public_key, kem_decapsulation_key, group_private_key) =
-//             expand_decaps_key_g::<MlKem768, NistP256, Shake256>(&Array::from(self.seed));
-//
-//         // (ss_PQ, ss_T) = prepareDecapsG(ct_PQ, ct_T, dk_PQ, dk_T)
-//         let (kem_shared_key, group_shared_secret) = prepare_decaps_g::<MlKem768, NistP256>(
-//             kem_ciphertext,
-//             group_ciphertext,
-//             &kem_decapsulation_key,
-//             &group_private_key,
-//         )
-//         .map_err(|_| DecapsulationError)?;
-//
-//         // ss_H = C2PRICombiner(ss_PQ, ss_T, ct_T, ek_T, Label)
-//         let secret_key = c2pri_combiner::<MlKem768, NistP256, Sha3_256>(
-//             &kem_shared_key,
-//             &group_shared_secret,
-//             group_ciphertext,
-//             &group_public_key,
-//             ML_KEM768_P256_LABEL,
-//         );
-//
-//         // return ss_H
-//         Ok(secret_key)
-//     }
-// }
-//
-// /// MlKem1024P384
-// #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
-// struct MlKem1024P384 {}
-//
-// impl Kem for MlKem1024P384 {
-//     type DecapsulationKey = HybridKemDecapsulationKey<MlKem1024, NistP384>;
-//     type EncapsulationKey = HybridKemEncapsulationKey<MlKem1024, NistP384>;
-//     type SharedKeySize = U32;
-//     type CiphertextSize = U1153;
-// }
-//
-// impl Encapsulate for HybridKemEncapsulationKey<MlKem1024, NistP384> {
-//     type Kem = MlKem1024P384;
-//
-//     /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-5.5>
-//     ///
-//     /// def Encaps(ek):
-//     fn encapsulate_with_rng<R>(&self, rng: &mut R) -> (Ciphertext<Self::Kem>, SharedKey<Self::Kem>)
-//     where
-//         R: CryptoRng + ?Sized,
-//     {
-//         // (ek_PQ, ek_T) = split(KEM_PQ.Nek, Group_T.Nelem, ek)
-//         // (ss_PQ, ss_T, ct_PQ, ct_T) = prepareEncapsG(ek_PQ, ek_T)
-//         let (kem_shared_key, group_shared_secret, kem_ciphertext, group_ciphertext) =
-//             prepare_encaps_g(self, rng);
-//
-//         // ss_H = C2PRICombiner(ss_PQ, ss_T, ct_T, ek_T, Label)
-//         let secret_key = c2pri_combiner::<MlKem1024, NistP384, Sha3_256>(
-//             &kem_shared_key,
-//             &group_shared_secret,
-//             &group_ciphertext,
-//             &self.group_public_key,
-//             ML_KEM1024_P384_LABEL,
-//         );
-//
-//         // ct_H = concat(ct_PQ, ct_T)
-//         let mut ciphertext = Ciphertext::<MlKem1024P384>::default();
-//         ciphertext[..<MlKem1024 as Kem>::CiphertextSize::USIZE].copy_from_slice(&kem_ciphertext);
-//         ciphertext[<MlKem1024 as Kem>::CiphertextSize::USIZE..]
-//             .copy_from_slice(&group_ciphertext.to_sec1_bytes());
-//
-//         // return (ss_H, ct_H)
-//         (ciphertext, secret_key)
-//     }
-// }
-//
-// impl Decapsulator for HybridKemDecapsulationKey<MlKem1024, NistP384> {
-//     type Kem = MlKem1024P384;
-//
-//     fn encapsulation_key(&self) -> &EncapsulationKey<Self::Kem> {
-//         &self.encapsulation_key
-//     }
-// }
-//
-// impl TryDecapsulate for HybridKemDecapsulationKey<MlKem1024, NistP384> {
-//     type Error = DecapsulationError;
-//
-//     /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-5.5>
-//     ///
-//     /// def Decaps(dk, ct):
-//     fn try_decapsulate(
-//         &self,
-//         ciphertext: &Ciphertext<Self::Kem>,
-//     ) -> Result<SharedKey<Self::Kem>, Self::Error> {
-//         // (ct_PQ, ct_T) = split(KEM_PQ.Nct, Group_T.Nelem, ct)
-//         let kem_ciphertext =
-//             Array::slice_as_array(&ciphertext[..<MlKem1024 as Kem>::CiphertextSize::USIZE])
-//                 .ok_or(DecapsulationError)?;
-//         let group_ciphertext = &GroupPublicKey::from_sec1_bytes(
-//             &ciphertext[<MlKem1024 as Kem>::CiphertextSize::USIZE..],
-//         )
-//         .map_err(|_| DecapsulationError)?;
-//
-//         // (ek_PQ, ek_T, dk_PQ, dk_T) = expandDecapsKeyG(dk)
-//         let (_kem_encapsulation_key, group_public_key, kem_decapsulation_key, group_private_key) =
-//             expand_decaps_key_g::<MlKem1024, NistP384, Shake256>(&Array::from(self.seed));
-//
-//         // (ss_PQ, ss_T) = prepareDecapsG(ct_PQ, ct_T, dk_PQ, dk_T)
-//         let (kem_shared_key, group_shared_secret) = prepare_decaps_g::<MlKem1024, NistP384>(
-//             kem_ciphertext,
-//             group_ciphertext,
-//             &kem_decapsulation_key,
-//             &group_private_key,
-//         )
-//         .map_err(|_| DecapsulationError)?;
-//
-//         // ss_H = C2PRICombiner(ss_PQ, ss_T, ct_T, ek_T, Label)
-//         let secret_key = c2pri_combiner::<MlKem1024, NistP384, Sha3_256>(
-//             &kem_shared_key,
-//             &group_shared_secret,
-//             group_ciphertext,
-//             &group_public_key,
-//             ML_KEM1024_P384_LABEL,
-//         );
-//
-//         // return ss_H
-//         Ok(secret_key)
-//     }
-// }
 
 trait HybridKemParameter
 where
@@ -352,7 +151,7 @@ impl<H: HybridKemParameter + Kem> Encapsulate for HybridKemEncapsulationKey<H> {
 
         // (ss_PQ, ss_T, ct_PQ, ct_T) = prepareEncapsG(ek_PQ, ek_T)
         let (shared_secret_pq, shared_secret_t, ciphertext_pq, ciphertext_t) =
-            prepare_encaps_g::<H, R>(&encapsulation_key_pq, &encapsulation_key_t, rng);
+            prepare_encaps_g::<H, R>(encapsulation_key_pq, &encapsulation_key_t, rng);
 
         // ss_H = C2PRICombiner(ss_PQ, ss_T, ct_T, ek_T, Label)
         let shared_secret_h = c2pri_combiner::<H>(
@@ -439,6 +238,52 @@ impl<H: HybridKemParameter + Kem> HybridKemDecapsulationKey<H> {
 
         // return (seed, concat(ek_PQ, ek_T))
         (seed, (encapsulation_key_pq, encapsulation_key_t))
+    }
+}
+
+impl<H: HybridKemParameter + Kem> TryDecapsulate for HybridKemDecapsulationKey<H> {
+    type Error = DecapsulationError;
+
+    /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-5.5>
+    ///
+    /// def Decaps(dk, ct):
+    fn try_decapsulate(
+        &self,
+        ciphertext: &Ciphertext<Self::Kem>,
+    ) -> Result<SharedKey<Self::Kem>, Self::Error> {
+        // (ct_PQ, ct_T) = split(KEM_PQ.Nct, Group_T.Nelem, ct)
+        let (ciphertext_pq, ciphertext_t) =
+            ciphertext.split_at(<H::KemPQ as Kem>::CiphertextSize::USIZE);
+        let ciphertext_pq = Array::slice_as_array(ciphertext_pq).ok_or(DecapsulationError)?;
+        // let ciphertext_t = Array::slice_as_array(ciphertext_t).ok_or(DecapsulationError)?;
+        let ciphertext_t =
+            GroupPublicKey::from_sec1_bytes(ciphertext_t).map_err(|_| DecapsulationError)?;
+
+        // (ek_PQ, ek_T, dk_PQ, dk_T) = expandDecapsKeyG(dk)
+        let (_encapsulation_key_pq, encapsulation_key_t, decapsulation_key_pq, decapsulation_key_t) =
+            expand_decaps_key_g::<H>(&self.seed);
+
+        // (ss_PQ, ss_T) = prepareDecapsG(ct_PQ, ct_T, dk_PQ, dk_T)
+        let (shared_secret_pq, shared_secret_t) = prepare_decaps_g::<H>(
+            ciphertext_pq,
+            &ciphertext_t,
+            &decapsulation_key_pq,
+            &decapsulation_key_t,
+        )
+        .map_err(|_| DecapsulationError)?;
+
+        // ss_H = C2PRICombiner(ss_PQ, ss_T, ct_T, ek_T, Label)
+        let shared_secret_h = c2pri_combiner::<H>(
+            &shared_secret_pq,
+            &shared_secret_t,
+            &ciphertext_t,
+            &encapsulation_key_t,
+            H::LABEL,
+        );
+
+        // return ss_H
+        Ok(Array::try_from(shared_secret_h.as_slice())
+            .expect("The length of shared secret must match the output length of KDF"))
     }
 }
 
@@ -532,6 +377,7 @@ impl RandomScalar for NistP384 {
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-hybrid-kems-12.html#section-5.1.1>
 ///
 /// def expandDecapsKeyG(seed):
+#[expect(clippy::type_complexity)]
 fn expand_decaps_key_g<H: HybridKemParameter>(
     seed: &Array<u8, H::DecapsulationKeySize>,
 ) -> (
@@ -542,7 +388,7 @@ fn expand_decaps_key_g<H: HybridKemParameter>(
 ) {
     // seed_full = PRG(seed)
     let mut prg = H::PRG::default();
-    prg.update(&seed);
+    prg.update(seed);
     let mut seed_full = prg.finalize_xof();
 
     // (seed_PQ, seed_T) = split(KEM_PQ.Nseed, Group_T.Nseed, seed_full)
