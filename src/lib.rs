@@ -499,5 +499,3 @@ where
     hasher.update(label);
     hasher.finalize()
 }
-
-fn main() {}
