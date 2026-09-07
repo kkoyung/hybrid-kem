@@ -329,6 +329,13 @@ impl Kem for MlKem1024P384 {
     type CiphertextSize = <Self as HybridKemParameter>::CiphertextSize;
 }
 
+/// EncapsulationKey
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct HybridKemEncapsulationKey<H: HybridKemParameter> {
+    encapsulation_key_pq: <H::KemPQ as Kem>::EncapsulationKey,
+    encapsulation_key_t: GroupPublicKey<H::GroupT>,
+}
+
 impl<H: Kem + HybridKemParameter> Encapsulate for HybridKemEncapsulationKey<H> {
     type Kem = H;
 
@@ -369,13 +376,6 @@ impl<H: Kem + HybridKemParameter> Encapsulate for HybridKemEncapsulationKey<H> {
             ciphertext_h,
         )
     }
-}
-
-/// EncapsulationKey
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct HybridKemEncapsulationKey<H: HybridKemParameter> {
-    encapsulation_key_pq: <H::KemPQ as Kem>::EncapsulationKey,
-    encapsulation_key_t: GroupPublicKey<H::GroupT>,
 }
 
 impl<H: HybridKemParameter> KeyExport for HybridKemEncapsulationKey<H> {
