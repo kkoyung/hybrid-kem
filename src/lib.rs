@@ -38,7 +38,7 @@ use shake::{Shake256, Update};
 mod tests;
 
 #[derive(Debug)]
-struct DecapsulationError;
+pub struct DecapsulationError;
 
 impl core::fmt::Display for DecapsulationError {
     #[inline]
@@ -49,7 +49,7 @@ impl core::fmt::Display for DecapsulationError {
 
 impl core::error::Error for DecapsulationError {}
 
-trait HybridKemParameter
+pub trait HybridKemParameter
 where
     <Self::GroupT as Curve>::FieldBytesSize: ModulusSize,
     <Self::GroupT as CurveArithmetic>::AffinePoint:
@@ -77,7 +77,7 @@ where
 
 /// MlKem768P256
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
-struct MlKem768P256 {}
+pub struct MlKem768P256 {}
 
 impl HybridKemParameter for MlKem768P256 {
     type GroupT = NistP256;
@@ -103,7 +103,7 @@ impl Kem for MlKem768P256 {
 
 /// MlKem768P256
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
-struct MlKem1024P384 {}
+pub struct MlKem1024P384 {}
 
 impl HybridKemParameter for MlKem1024P384 {
     type GroupT = NistP384;
@@ -129,7 +129,7 @@ impl Kem for MlKem1024P384 {
 
 /// EncapsulationKey
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct HybridKemEncapsulationKey<H: HybridKemParameter> {
+pub struct HybridKemEncapsulationKey<H: HybridKemParameter> {
     encapsulation_key_pq: <H::KemPQ as Kem>::EncapsulationKey,
     encapsulation_key_t: GroupPublicKey<H::GroupT>,
 }
@@ -206,7 +206,7 @@ impl<H: HybridKemParameter> KeySizeUser for HybridKemEncapsulationKey<H> {
 }
 
 /// DecapsulationKey
-struct HybridKemDecapsulationKey<H: HybridKemParameter + Kem> {
+pub struct HybridKemDecapsulationKey<H: HybridKemParameter + Kem> {
     seed: Array<u8, H::DecapsulationKeySize>,
     encapsulation_key: <H as Kem>::EncapsulationKey,
 }
@@ -309,7 +309,7 @@ impl<H: HybridKemParameter + Kem> KeySizeUser for HybridKemDecapsulationKey<H> {
     type KeySize = H::DecapsulationKeySize;
 }
 
-trait RandomScalar: Curve {
+pub trait RandomScalar: Curve {
     type SeedSize: ArraySize;
 
     /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-concrete-hybrid-kems-04.html#section-3.1.1>
