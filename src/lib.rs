@@ -270,6 +270,11 @@ where
     type SharedSecretSize: ArraySize;
 
     const LABEL: &[u8];
+
+    // NOTE: For MLKEM768-P256 and MLKEM1024-P384, the seed is directly used as the decapsulation
+    // key, so the seed size is same as the decapsulation key size. However, Rust compiler does not
+    // know it from this trait definition, and refuse to compile. To make it compile, we replace
+    // `SeedSize` with `DecapsulationKeySize` in our implementation.
 }
 
 /// MlKem768P256
