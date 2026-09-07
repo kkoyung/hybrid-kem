@@ -336,7 +336,7 @@ struct HybridKemEncapsulationKey<H: HybridKemParameter> {
     encapsulation_key_t: GroupPublicKey<H::GroupT>,
 }
 
-impl<H: Kem + HybridKemParameter> Encapsulate for HybridKemEncapsulationKey<H> {
+impl<H: HybridKemParameter + Kem> Encapsulate for HybridKemEncapsulationKey<H> {
     type Kem = H;
 
     /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-5.5>
@@ -412,14 +412,14 @@ impl<H: HybridKemParameter> KeySizeUser for HybridKemEncapsulationKey<H> {
 }
 
 /// DecapsulationKey
-struct HybridKemDecapsulationKey<H: HybridKemParameter> {
+struct HybridKemDecapsulationKey<H: HybridKemParameter + Kem> {
     seed: Array<u8, H::DecapsulationKeySize>,
     decapsulation_key_pq: <H::KemPQ as Kem>::DecapsulationKey,
     decapsulation_key_t: GroupPrivateKey<H::GroupT>,
-    encapsulation_key: HybridKemEncapsulationKey<H>,
+    encapsulation_key: <H as Kem>::EncapsulationKey,
 }
 
-impl<H: HybridKemParameter> HybridKemDecapsulationKey<H> {
+impl<H: HybridKemParameter + Kem> HybridKemDecapsulationKey<H> {
     /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-5.5>
     ///
     /// def DeriveKeyPair(seed):
@@ -446,37 +446,50 @@ impl<H: HybridKemParameter> HybridKemDecapsulationKey<H> {
     }
 }
 
-impl<H: HybridKemParameter> Generate for HybridKemDecapsulationKey<H> {
+impl<H: HybridKemParameter + Kem> Decapsulator for HybridKemDecapsulationKey<H> {
+    type Kem = H;
+
+    fn encapsulation_key(&self) -> &EncapsulationKey<Self::Kem> {
+        &self.encapsulation_key
+    }
+}
+
+impl<H: HybridKemParameter + Kem> Generate for HybridKemDecapsulationKey<H> {
     fn try_generate_from_rng<R: TryCryptoRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
         let seed = Array::try_generate_from_rng(rng)?;
         Ok(HybridKemDecapsulationKey::new(&seed))
     }
 }
 
-impl<H: HybridKemParameter> KeyExport for HybridKemDecapsulationKey<H> {
+impl<H: HybridKemParameter + Kem> KeyExport for HybridKemDecapsulationKey<H> {
     fn to_bytes(&self) -> Key<Self> {
         self.seed.clone()
     }
 }
 
-impl<H: HybridKemParameter> KeyInit for HybridKemDecapsulationKey<H> {
+impl<H: HybridKemParameter + Kem> KeyInit for HybridKemDecapsulationKey<H> {
     fn new(seed: &Key<Self>) -> Self {
         let (encapsulation_key_pq, encapsulation_key_t, decapsulation_key_pq, decapsulation_key_t) =
             expand_decaps_key_g::<H>(seed);
+
+        let mut encapsulation_key_bytes = Array::default();
+        let (encapsulation_key_bytes_pq, encapsulation_key_bytes_t) =
+            encapsulation_key_bytes.split_at_mut(<H::KemPQ as Kem>::EncapsulationKey::key_size());
+        encapsulation_key_bytes_pq.copy_from_slice(&encapsulation_key_pq.to_bytes());
+        encapsulation_key_bytes_t.copy_from_slice(&encapsulation_key_t.to_sec1_bytes());
+        let encapsulation_key = <H as Kem>::EncapsulationKey::new(&encapsulation_key_bytes)
+            .expect("Reconstructed valid encapsulation key should remain valid");
 
         HybridKemDecapsulationKey {
             seed: seed.clone(),
             decapsulation_key_pq,
             decapsulation_key_t,
-            encapsulation_key: HybridKemEncapsulationKey {
-                encapsulation_key_pq,
-                encapsulation_key_t,
-            },
+            encapsulation_key,
         }
     }
 }
 
-impl<H: HybridKemParameter> KeySizeUser for HybridKemDecapsulationKey<H> {
+impl<H: HybridKemParameter + Kem> KeySizeUser for HybridKemDecapsulationKey<H> {
     type KeySize = H::DecapsulationKeySize;
 }
 
