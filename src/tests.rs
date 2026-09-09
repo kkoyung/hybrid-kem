@@ -1,4 +1,9 @@
-#[expect(clippy::complexity, dead_code)]
+use kem::{Decapsulator, KeyExport, KeyInit};
+use ml_kem::array::Array;
+
+use crate::{HybridKemDecapsulationKey, MlKem768P256, expand_decaps_key_g};
+
+#[expect(clippy::complexity)]
 fn mlkem768p256_test_case_1() -> (
     Vec<u8>,
     Vec<u8>,
@@ -168,25 +173,40 @@ fn mlkem768p256_test_case_1() -> (
     )
 }
 
-// #[test]
-// fn test_expand_decaps_key_g() {
-//     let (
-//         seed_bytes,
-//         randomness_bytes,
-//         encapsulation_key_bytes,
-//         decapsulation_key_bytes,
-//         decapsulation_key_pq_bytes,
-//         decapsulation_key_t_bytes,
-//         ciphertext_bytes,
-//         shared_secret_bytes,
-//     ) = mlkem768p256_test_case_1();
-//
-//     // let (encapsulation_key, ) = expand_decaps_key_g::<MlKem768,NistP256,Shake256>(&Array::try_from(&seed_bytes).unwrap());
-//
-//     let decapsulation_key =
-//         HybridKemDecapsulationKey::<MlKem768, NistP256>::new(&Array::try_from(&seed_bytes).unwrap());
-//     assert_eq!(decapsulation_key.to_bytes().as_slice(), &decapsulation_key_bytes);
-//     assert_eq!(decapsulation_key.kem_decapsulation_key.to_bytes().as_slice(), &decapsulation_key_pq_bytes);
-//     assert_eq!(decapsulation_key.group_private_key.to_bytes().as_slice(), &decapsulation_key_t_bytes);
-//     assert_eq!(decapsulation_key.encapsulation_key.to_bytes().as_slice(), &encapsulation_key_bytes);
-// }
+#[test]
+fn test_expand_decaps_key_g() {
+    let (
+        seed_bytes,
+        _randomness_bytes,
+        encapsulation_key_bytes,
+        decapsulation_key_bytes,
+        decapsulation_key_pq_bytes,
+        decapsulation_key_t_bytes,
+        _ciphertext_bytes,
+        _shared_secret_bytes,
+    ) = mlkem768p256_test_case_1();
+
+    // let (encapsulation_key, ) = expand_decaps_key_g::<MlKem768,NistP256,Shake256>(&Array::try_from(&seed_bytes).unwrap());
+
+    let seed = Array::slice_as_array(&seed_bytes).expect("Invalid seed length");
+    let decapsulation_key = HybridKemDecapsulationKey::<MlKem768P256>::new(seed);
+    let encapsulation_key = decapsulation_key.encapsulation_key();
+    assert_eq!(
+        encapsulation_key.to_bytes().as_slice(),
+        &encapsulation_key_bytes
+    );
+    assert_eq!(
+        decapsulation_key.to_bytes().as_slice(),
+        &decapsulation_key_bytes
+    );
+    let (_, _, decapsulation_key_pq, decapsulation_key_t) =
+        expand_decaps_key_g::<MlKem768P256>(seed);
+    assert_eq!(
+        decapsulation_key_pq.to_bytes().as_slice(),
+        &decapsulation_key_pq_bytes
+    );
+    assert_eq!(
+        decapsulation_key_t.to_bytes().as_slice(),
+        &decapsulation_key_t_bytes
+    );
+}
