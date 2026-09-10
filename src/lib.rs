@@ -139,7 +139,7 @@ impl<H: HybridKemParameter + Kem> Encapsulate for HybridKemEncapsulationKey<H> {
 
     /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-5.5>
     ///
-    /// def Encaps(ek):
+    /// Encaps(ek):
     fn encapsulate_with_rng<R>(&self, rng: &mut R) -> (Ciphertext<Self::Kem>, SharedKey<Self::Kem>)
     where
         R: CryptoRng + ?Sized,
@@ -216,7 +216,7 @@ impl<H: HybridKemParameter + Kem> TryDecapsulate for HybridKemDecapsulationKey<H
 
     /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-5.5>
     ///
-    /// def Decaps(dk, ct):
+    /// Decaps(dk, ct):
     fn try_decapsulate(
         &self,
         ciphertext: &Ciphertext<Self::Kem>,
@@ -281,7 +281,7 @@ impl<H: HybridKemParameter + Kem> KeyExport for HybridKemDecapsulationKey<H> {
 impl<H: HybridKemParameter + Kem> KeyInit for HybridKemDecapsulationKey<H> {
     /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-5.5>
     ///
-    /// def DeriveKeyPair(seed):
+    /// DeriveKeyPair(seed):
     fn new(seed: &Key<Self>) -> Self {
         // (ek_PQ, ek_T, dk_PQ, dk_T) = expandDecapsKeyG(seed)
         let (
@@ -314,7 +314,7 @@ pub trait RandomScalar: Curve {
 
     /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-concrete-hybrid-kems-04.html#section-3.1.1>
     ///
-    /// def RandomScalar(seed):
+    /// RandomScalar(seed):
     fn random_scalar(seed: &Array<u8, Self::SeedSize>) -> Option<GroupPrivateKey<Self>> {
         // start = 0
         // end = Nscalar
@@ -351,7 +351,7 @@ impl RandomScalar for NistP384 {
 
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-hybrid-kems-12.html#section-5.1.1>
 ///
-/// def expandDecapsKeyG(seed):
+/// expandDecapsKeyG(seed):
 #[expect(clippy::type_complexity)]
 fn expand_decaps_key_g<H: HybridKemParameter>(
     seed: &Array<u8, H::DecapsulationKeySize>,
@@ -394,7 +394,7 @@ fn expand_decaps_key_g<H: HybridKemParameter>(
 
 /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-5.1.1>
 ///
-/// def prepareEncapsG(ek_PQ, ek_T):
+/// prepareEncapsG(ek_PQ, ek_T):
 #[expect(clippy::type_complexity)]
 fn prepare_encaps_g<H: HybridKemParameter, R: CryptoRng + ?Sized>(
     encapsulation_key_pq: &<H::KemPQ as Kem>::EncapsulationKey,
@@ -430,7 +430,7 @@ fn prepare_encaps_g<H: HybridKemParameter, R: CryptoRng + ?Sized>(
 
 /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-5.1.1>
 ///
-/// def prepareDecapsG(ct_PQ, ct_T, dk_PQ, dk_T):
+/// prepareDecapsG(ct_PQ, ct_T, dk_PQ, dk_T):
 #[expect(clippy::type_complexity)]
 fn prepare_decaps_g<H: HybridKemParameter>(
     ciphertext_pq: &Array<u8, <H::KemPQ as Kem>::CiphertextSize>,
@@ -457,7 +457,7 @@ fn prepare_decaps_g<H: HybridKemParameter>(
 
 /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-5.1.3>
 ///
-/// def C2PRICombiner(ss_PQ, ss_T, ct_T, ek_T, label):
+/// C2PRICombiner(ss_PQ, ss_T, ct_T, ek_T, label):
 fn c2pri_combiner<H: HybridKemParameter>(
     shared_secret_pq: &SharedKey<H::KemPQ>,
     shared_secret_t: &Array<u8, <H::GroupT as Curve>::FieldBytesSize>,
