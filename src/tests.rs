@@ -1,4 +1,4 @@
-use kem::{Decapsulator, KeyExport, KeyInit};
+use kem::{Decapsulator, KeyExport, KeyInit, TryDecapsulate};
 use ml_kem::array::Array;
 
 use crate::{HybridKemDecapsulationKey, MlKem768P256, expand_decaps_key_g};
@@ -177,16 +177,14 @@ fn mlkem768p256_test_case_1() -> (
 fn test_expand_decaps_key_g() {
     let (
         seed_bytes,
-        _randomness_bytes,
+        randomness_bytes,
         encapsulation_key_bytes,
         decapsulation_key_bytes,
         decapsulation_key_pq_bytes,
         decapsulation_key_t_bytes,
-        _ciphertext_bytes,
-        _shared_secret_bytes,
+        ciphertext_bytes,
+        shared_secret_bytes,
     ) = mlkem768p256_test_case_1();
-
-    // let (encapsulation_key, ) = expand_decaps_key_g::<MlKem768,NistP256,Shake256>(&Array::try_from(&seed_bytes).unwrap());
 
     let seed = Array::slice_as_array(&seed_bytes).expect("Invalid seed length");
     let decapsulation_key = HybridKemDecapsulationKey::<MlKem768P256>::new(seed);
@@ -209,4 +207,14 @@ fn test_expand_decaps_key_g() {
         decapsulation_key_t.to_bytes().as_slice(),
         &decapsulation_key_t_bytes
     );
+
+    let (shared_secret, ciphertext) = encapsulation_key.encapsulate_deterministic(
+        randomness_bytes[..32].try_into().unwrap(),
+        randomness_bytes[32..].try_into().unwrap(),
+    );
+    assert_eq!(ciphertext.to_vec(), ciphertext_bytes);
+    assert_eq!(shared_secret.to_vec(), shared_secret_bytes);
+
+    let decapsulated_shared_secret = decapsulation_key.try_decapsulate(&ciphertext).unwrap();
+    assert_eq!(decapsulated_shared_secret, shared_secret);
 }
