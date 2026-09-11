@@ -21,11 +21,11 @@ use kem::SharedKey;
 use kem::TryKeyInit;
 use kem::common::OutputSizeUser;
 use kem::{Ciphertext, TryDecapsulate};
-use ml_kem::MlKem768;
+use ml_kem::ArraySize;
 use ml_kem::MlKem1024;
 use ml_kem::array::Array;
 use ml_kem::array::sizes::{U32, U48, U128, U1153, U1249, U1665};
-use ml_kem::{ArraySize, B32};
+use ml_kem::{EncapsulationKey768, EncapsulationKey1024, MlKem768};
 use p256::NistP256;
 use p384::NistP384;
 use rand_core::CryptoRng;
@@ -54,6 +54,7 @@ where
     <Self::GroupT as Curve>::FieldBytesSize: ModulusSize,
     <Self::GroupT as CurveArithmetic>::AffinePoint:
         FromSec1Point<Self::GroupT> + ToSec1Point<Self::GroupT>,
+    <Self::KemPQ as Kem>::EncapsulationKey: EncapsulateDeterministic,
     <Self::KemPQ as Kem>::DecapsulationKey: KeyInit,
 {
     type GroupT: Curve + CurveArithmetic + PointCompression + RandomScalar;
@@ -72,11 +73,6 @@ where
     // `SeedSize` with `DecapsulationKeySize` in trait implementation.
 
     const LABEL: &[u8];
-
-    fn encapsulate_deterministic_pq(
-        encapsulation_key_pq: &EncapsulationKey<Self::KemPQ>,
-        seed: &B32,
-    ) -> (Ciphertext<Self::KemPQ>, SharedKey<Self::KemPQ>);
 }
 
 /// MlKem768P256
@@ -96,13 +92,6 @@ impl HybridKemParameter for MlKem768P256 {
     type SharedSecretSize = U32;
 
     const LABEL: &[u8] = br"MLKEM768-P256";
-
-    fn encapsulate_deterministic_pq(
-        encapsulation_key_pq: &EncapsulationKey<Self::KemPQ>,
-        seed: &B32,
-    ) -> (Ciphertext<Self::KemPQ>, SharedKey<Self::KemPQ>) {
-        encapsulation_key_pq.encapsulate_deterministic(seed)
-    }
 }
 
 impl Kem for MlKem768P256 {
@@ -129,13 +118,6 @@ impl HybridKemParameter for MlKem1024P384 {
     type SharedSecretSize = U32;
 
     const LABEL: &[u8] = br"MLKEM1024-P384";
-
-    fn encapsulate_deterministic_pq(
-        encapsulation_key_pq: &EncapsulationKey<Self::KemPQ>,
-        seed: &B32,
-    ) -> (Ciphertext<Self::KemPQ>, SharedKey<Self::KemPQ>) {
-        encapsulation_key_pq.encapsulate_deterministic(seed)
-    }
 }
 
 impl Kem for MlKem1024P384 {
@@ -158,7 +140,10 @@ impl<H: HybridKemParameter + Kem> HybridKemEncapsulationKey<H> {
     /// Encaps(ek):
     fn encapsulate_deterministic(
         &self,
-        randomness_pq: &B32,
+        randomness_pq: &Array<
+            u8,
+            <<H::KemPQ as Kem>::EncapsulationKey as EncapsulateDeterministic>::SeedSize,
+        >,
         randomness_t: &Array<u8, <H::GroupT as RandomScalar>::SeedSize>,
     ) -> (SharedKey<H>, Ciphertext<H>) {
         // (ek_PQ, ek_T) = split(KEM_PQ.Nek, Group_T.Nelem, ek)
@@ -347,6 +332,37 @@ impl<H: HybridKemParameter + Kem> KeySizeUser for HybridKemDecapsulationKey<H> {
     type KeySize = H::DecapsulationKeySize;
 }
 
+pub trait EncapsulateDeterministic: Encapsulate {
+    type SeedSize: ArraySize;
+
+    fn encapsulate_deterministic(
+        &self,
+        seed: &Array<u8, Self::SeedSize>,
+    ) -> (Ciphertext<Self::Kem>, SharedKey<Self::Kem>);
+}
+
+impl EncapsulateDeterministic for EncapsulationKey768 {
+    type SeedSize = U32;
+
+    fn encapsulate_deterministic(
+        &self,
+        seed: &Array<u8, Self::SeedSize>,
+    ) -> (Ciphertext<Self::Kem>, SharedKey<Self::Kem>) {
+        self.encapsulate_deterministic(seed)
+    }
+}
+
+impl EncapsulateDeterministic for EncapsulationKey1024 {
+    type SeedSize = U32;
+
+    fn encapsulate_deterministic(
+        &self,
+        seed: &Array<u8, Self::SeedSize>,
+    ) -> (Ciphertext<Self::Kem>, SharedKey<Self::Kem>) {
+        self.encapsulate_deterministic(seed)
+    }
+}
+
 pub trait RandomScalar: Curve {
     type SeedSize: ArraySize;
 
@@ -437,7 +453,10 @@ fn expand_decaps_key_g<H: HybridKemParameter>(
 fn prepare_encaps_g<H: HybridKemParameter>(
     encapsulation_key_pq: &<H::KemPQ as Kem>::EncapsulationKey,
     encapsulation_key_t: &GroupPublicKey<H::GroupT>,
-    randomness_pq: &B32,
+    randomness_pq: &Array<
+        u8,
+        <<H::KemPQ as Kem>::EncapsulationKey as EncapsulateDeterministic>::SeedSize,
+    >,
     randomness_t: &Array<u8, <H::GroupT as RandomScalar>::SeedSize>,
 ) -> (
     Array<u8, <H::KemPQ as Kem>::SharedKeySize>,
@@ -447,7 +466,8 @@ fn prepare_encaps_g<H: HybridKemParameter>(
 ) {
     // (ss_PQ, ct_PQ) = KEM_PQ.Encaps(ek_PQ)
     let (ciphertext_pq, shared_secret_pq) =
-        H::encapsulate_deterministic_pq(encapsulation_key_pq, randomness_pq);
+        encapsulation_key_pq.encapsulate_deterministic(randomness_pq);
+    // H::encapsulate_deterministic_pq(encapsulation_key_pq, randomness_pq);
 
     // sk_E = Group_T.RandomScalar(random(Group_T.Nseed))
     let secret_key_e = H::GroupT::random_scalar(randomness_t)
