@@ -1,35 +1,26 @@
 use std::fmt::Debug;
 
-use elliptic_curve::array::typenum::Unsigned;
 use elliptic_curve::ecdh::SharedSecret;
 use elliptic_curve::point::PointCompression;
 use elliptic_curve::sec1::{FromSec1Point, ModulusSize, ToSec1Point};
 use elliptic_curve::{
     Curve, CurveArithmetic, PublicKey as GroupPublicKey, ScalarValue, SecretKey as GroupPrivateKey,
 };
-use kem::Decapsulator;
-use kem::Encapsulate;
-use kem::EncapsulationKey;
-use kem::Generate;
-use kem::InvalidKey;
-use kem::Kem;
-use kem::Key;
-use kem::KeyExport;
-use kem::KeyInit;
-use kem::KeySizeUser;
-use kem::SharedKey;
-use kem::TryKeyInit;
 use kem::common::OutputSizeUser;
-use kem::{Ciphertext, TryDecapsulate};
-use ml_kem::ArraySize;
-use ml_kem::MlKem1024;
+use kem::{
+    Ciphertext, Decapsulator, Encapsulate, EncapsulationKey, Generate, InvalidKey, Kem, Key,
+    KeyExport, KeyInit, KeySizeUser, SharedKey, TryDecapsulate, TryKeyInit,
+};
 use ml_kem::array::Array;
 use ml_kem::array::sizes::{U32, U48, U128, U1153, U1249, U1665};
-use ml_kem::{EncapsulationKey768, EncapsulationKey1024, MlKem768};
+use ml_kem::array::typenum::Unsigned;
+use ml_kem::{
+    ArraySize, EncapsulationKey768 as MlKem768EncapsulationKey,
+    EncapsulationKey1024 as MlKem1024EncapsulationKey, MlKem768, MlKem1024,
+};
 use p256::NistP256;
 use p384::NistP384;
-use rand_core::CryptoRng;
-use rand_core::TryCryptoRng;
+use rand_core::{CryptoRng, TryCryptoRng};
 use sha3::{Digest, Sha3_256};
 use shake::digest::{ExtendableOutput, XofReader};
 use shake::{Shake256, Update};
@@ -341,7 +332,7 @@ pub trait EncapsulateDeterministic: Encapsulate {
     ) -> (Ciphertext<Self::Kem>, SharedKey<Self::Kem>);
 }
 
-impl EncapsulateDeterministic for EncapsulationKey768 {
+impl EncapsulateDeterministic for MlKem768EncapsulationKey {
     type SeedSize = U32;
 
     fn encapsulate_deterministic(
@@ -352,7 +343,7 @@ impl EncapsulateDeterministic for EncapsulationKey768 {
     }
 }
 
-impl EncapsulateDeterministic for EncapsulationKey1024 {
+impl EncapsulateDeterministic for MlKem1024EncapsulationKey {
     type SeedSize = U32;
 
     fn encapsulate_deterministic(
