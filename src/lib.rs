@@ -118,6 +118,18 @@ impl Kem for MlKem1024P384 {
     type CiphertextSize = <Self as HybridKemParameter>::CiphertextSize;
 }
 
+// Naming convention
+//
+// seed: seed
+// ss  : shared secret
+// ct  : ciphertext
+// ek  : encapsulation key (encapsulation key for KEMs, public key for Nominal Groups)
+// dk  : decapsulation key (decapsulation key for KEMs, secret key for Nominal Groups)
+// sk  : secret key for Nominal Groups
+//
+// _PQ : Post-quantum
+// _T  : Traditional
+
 /// EncapsulationKey
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HybridKemEncapsulationKey<H: HybridKemParameter> {
@@ -536,13 +548,3 @@ fn element_to_shared_secret<H: HybridKemParameter>(
 ) -> Array<u8, <H::GroupT as Curve>::FieldBytesSize> {
     *p.raw_secret_bytes()
 }
-
-// seed: seed
-// ss  : shared secret
-// ct  : ciphertext
-// ek  : encapsulation key (encapsulation key for KEMs, public key for Nominal Groups)
-// dk  : decapsulation key (decapsulation key for KEMs, secret key for Nominal Groups)
-// sk  : secret key for Nominal Groups
-//
-// _PQ : Post-quantum
-// _T  : Traditional
