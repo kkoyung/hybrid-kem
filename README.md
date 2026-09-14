@@ -1,0 +1,3 @@
+# Hybrid KEM
+
+Pure rust implementation of hybrid kems (mlkem768-p256 and mlkem1024-p384), as described in [draft-irtf-cfrg-concrete-hybrid-kems-04](https://www.ietf.org/archive/id/draft-irtf-cfrg-concrete-hybrid-kems-04.html) and [draft-irtf-cfrg-hybrid-kems-12](https://www.ietf.org/archive/id/draft-irtf-cfrg-hybrid-kems-12.html). It uses the crates [ml-kem](https://crates.io/crates/ml-kem), [p256](https://crates.io/crates/p256), and [p384](https://crates.io/crates/p384) from [RustCrypto](https://github.com/RustCrypto/) to support the base algorithms. It also implements the [`Kem`](https://docs.rs/kem/latest/kem/trait.Kem.html) trait from the [kem](https://crates.io/crates/kem) crate.
