@@ -1,5 +1,4 @@
-use kem::{Decapsulator, KeyExport, KeyInit, TryDecapsulate};
-use ml_kem::array::Array;
+use kem::{Decapsulator, KeyExport, KeyInit, Seed, TryDecapsulate};
 
 use crate::{
     MlKem768P256DecapsulationKey, MlKem768P256Kem, MlKem1024P384DecapsulationKey, MlKem1024P384Kem,
@@ -155,7 +154,7 @@ fn test_mlkem768p256_case_1() {
     ))
     .unwrap();
 
-    let seed = Array::slice_as_array(&seed_bytes).expect("Invalid seed length");
+    let seed = Seed::<MlKem768P256Kem>::slice_as_array(&seed_bytes).expect("Invalid seed length");
     let decapsulation_key = MlKem768P256DecapsulationKey::new(seed);
     let encapsulation_key = decapsulation_key.encapsulation_key();
     assert_eq!(
@@ -374,7 +373,7 @@ fn test_mlkem1024p768_case_1() {
     ))
     .unwrap();
 
-    let seed = Array::slice_as_array(&seed_bytes).expect("Invalid seed length");
+    let seed = Seed::<MlKem1024P384Kem>::slice_as_array(&seed_bytes).expect("Invalid seed length");
     let decapsulation_key = MlKem1024P384DecapsulationKey::new(seed);
     let encapsulation_key = decapsulation_key.encapsulation_key();
     assert_eq!(
