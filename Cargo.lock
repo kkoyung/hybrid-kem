@@ -261,6 +261,7 @@ dependencies = [
  "rand_core",
  "sha3 0.12.0",
  "shake",
+ "zeroize",
 ]
 
 [[package]]
@@ -301,6 +302,7 @@ dependencies = [
  "pkcs8",
  "rand_core",
  "sha3 0.11.0",
+ "zeroize",
 ]
 
 [[package]]
@@ -312,6 +314,7 @@ dependencies = [
  "ctutils",
  "hybrid-array",
  "num-traits",
+ "zeroize",
 ]
 
 [[package]]

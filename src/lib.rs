@@ -25,6 +25,9 @@ use sha3::{Digest, Sha3_256};
 use shake::digest::{ExtendableOutput, XofReader};
 use shake::{Shake256, Update};
 
+#[cfg(feature = "zeroize")]
+use zeroize::ZeroizeOnDrop;
+
 #[cfg(test)]
 mod tests;
 
@@ -338,6 +341,9 @@ impl<H: HybridKemParameter + Kem> KeyInit for HybridKemDecapsulationKey<H> {
 impl<H: HybridKemParameter + Kem> KeySizeUser for HybridKemDecapsulationKey<H> {
     type KeySize = H::DecapsulationKeySize;
 }
+
+#[cfg(feature = "zeroize")]
+impl<H: HybridKemParameter + Kem> ZeroizeOnDrop for HybridKemDecapsulationKey<H> {}
 
 pub trait EncapsulateDeterministic: Encapsulate {
     type SeedSize: ArraySize;
