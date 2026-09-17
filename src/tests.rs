@@ -1,7 +1,10 @@
 use kem::{Decapsulator, KeyExport, KeyInit, TryDecapsulate};
 use ml_kem::array::Array;
 
-use crate::{HybridKemDecapsulationKey, MlKem768P256, MlKem1024P384, expand_decaps_key_g};
+use crate::{
+    MlKem768P256DecapsulationKey, MlKem768P256Kem, MlKem1024P384DecapsulationKey, MlKem1024P384Kem,
+    expand_decaps_key_g,
+};
 
 #[test]
 fn test_mlkem768p256_case_1() {
@@ -153,7 +156,7 @@ fn test_mlkem768p256_case_1() {
     .unwrap();
 
     let seed = Array::slice_as_array(&seed_bytes).expect("Invalid seed length");
-    let decapsulation_key = HybridKemDecapsulationKey::<MlKem768P256>::new(seed);
+    let decapsulation_key = MlKem768P256DecapsulationKey::new(seed);
     let encapsulation_key = decapsulation_key.encapsulation_key();
     assert_eq!(
         encapsulation_key.to_bytes().as_slice(),
@@ -164,7 +167,7 @@ fn test_mlkem768p256_case_1() {
         &decapsulation_key_bytes
     );
     let (_, _, decapsulation_key_pq, decapsulation_key_t) =
-        expand_decaps_key_g::<MlKem768P256>(seed);
+        expand_decaps_key_g::<MlKem768P256Kem>(seed);
     assert_eq!(
         decapsulation_key_pq.to_bytes().as_slice(),
         &decapsulation_key_pq_bytes
@@ -372,7 +375,7 @@ fn test_mlkem1024p768_case_1() {
     .unwrap();
 
     let seed = Array::slice_as_array(&seed_bytes).expect("Invalid seed length");
-    let decapsulation_key = HybridKemDecapsulationKey::<MlKem1024P384>::new(seed);
+    let decapsulation_key = MlKem1024P384DecapsulationKey::new(seed);
     let encapsulation_key = decapsulation_key.encapsulation_key();
     assert_eq!(
         encapsulation_key.to_bytes().as_slice(),
@@ -383,7 +386,7 @@ fn test_mlkem1024p768_case_1() {
         &decapsulation_key_bytes
     );
     let (_, _, decapsulation_key_pq, decapsulation_key_t) =
-        expand_decaps_key_g::<MlKem1024P384>(seed);
+        expand_decaps_key_g::<MlKem1024P384Kem>(seed);
     assert_eq!(
         decapsulation_key_pq.to_bytes().as_slice(),
         &decapsulation_key_pq_bytes

@@ -28,6 +28,18 @@ use shake::{Shake256, Update};
 #[cfg(test)]
 mod tests;
 
+// MLKEM768-P256
+pub type MlKem768P256EncapsulationKey = HybridKemEncapsulationKey<MlKem768P256Kem>;
+pub type MlKem768P256DecapsulationKey = HybridKemDecapsulationKey<MlKem768P256Kem>;
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
+pub struct MlKem768P256Kem {}
+
+// MLKEM1024-P384
+pub type MlKem1024P384EncapsulationKey = HybridKemEncapsulationKey<MlKem1024P384Kem>;
+pub type MlKem1024P384DecapsulationKey = HybridKemDecapsulationKey<MlKem1024P384Kem>;
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
+pub struct MlKem1024P384Kem {}
+
 #[derive(Debug)]
 pub struct DecapsulationError;
 
@@ -66,11 +78,7 @@ where
     const LABEL: &[u8];
 }
 
-/// MlKem768P256
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
-pub struct MlKem768P256 {}
-
-impl HybridKemParameter for MlKem768P256 {
+impl HybridKemParameter for MlKem768P256Kem {
     type GroupT = NistP256;
     type KemPQ = MlKem768;
     type PRG = Shake256;
@@ -85,18 +93,14 @@ impl HybridKemParameter for MlKem768P256 {
     const LABEL: &[u8] = br"MLKEM768-P256";
 }
 
-impl Kem for MlKem768P256 {
+impl Kem for MlKem768P256Kem {
     type DecapsulationKey = HybridKemDecapsulationKey<Self>;
     type EncapsulationKey = HybridKemEncapsulationKey<Self>;
     type SharedKeySize = <Self as HybridKemParameter>::SharedSecretSize;
     type CiphertextSize = <Self as HybridKemParameter>::CiphertextSize;
 }
 
-/// MlKem768P256
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
-pub struct MlKem1024P384 {}
-
-impl HybridKemParameter for MlKem1024P384 {
+impl HybridKemParameter for MlKem1024P384Kem {
     type GroupT = NistP384;
     type KemPQ = MlKem1024;
     type PRG = Shake256;
@@ -111,7 +115,7 @@ impl HybridKemParameter for MlKem1024P384 {
     const LABEL: &[u8] = br"MLKEM1024-P384";
 }
 
-impl Kem for MlKem1024P384 {
+impl Kem for MlKem1024P384Kem {
     type DecapsulationKey = HybridKemDecapsulationKey<Self>;
     type EncapsulationKey = HybridKemEncapsulationKey<Self>;
     type SharedKeySize = <Self as HybridKemParameter>::SharedSecretSize;
