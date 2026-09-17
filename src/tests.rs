@@ -162,7 +162,7 @@ fn test_mlkem768p256_case_1() {
         &encapsulation_key_bytes
     );
     assert_eq!(
-        decapsulation_key.to_bytes().as_slice(),
+        decapsulation_key.as_bytes().as_slice(),
         &decapsulation_key_bytes
     );
     let (_, _, decapsulation_key_pq, decapsulation_key_t) =
@@ -381,7 +381,7 @@ fn test_mlkem1024p768_case_1() {
         &encapsulation_key_bytes
     );
     assert_eq!(
-        decapsulation_key.to_bytes().as_slice(),
+        decapsulation_key.as_bytes().as_slice(),
         &decapsulation_key_bytes
     );
     let (_, _, decapsulation_key_pq, decapsulation_key_t) =

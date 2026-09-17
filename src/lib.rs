@@ -241,6 +241,12 @@ pub struct HybridKemDecapsulationKey<H: HybridKemParameter + Kem> {
     encapsulation_key: <H as Kem>::EncapsulationKey,
 }
 
+impl<H: HybridKemParameter + Kem> HybridKemDecapsulationKey<H> {
+    pub fn as_bytes(&self) -> &Array<u8, <H as HybridKemParameter>::DecapsulationKeySize> {
+        &self.seed
+    }
+}
+
 impl<H: HybridKemParameter + Kem> TryDecapsulate for HybridKemDecapsulationKey<H> {
     type Error = DecapsulationError;
 
@@ -299,12 +305,6 @@ impl<H: HybridKemParameter + Kem> Generate for HybridKemDecapsulationKey<H> {
     fn try_generate_from_rng<R: TryCryptoRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
         let seed = Array::try_generate_from_rng(rng)?;
         Ok(HybridKemDecapsulationKey::new(&seed))
-    }
-}
-
-impl<H: HybridKemParameter + Kem> KeyExport for HybridKemDecapsulationKey<H> {
-    fn to_bytes(&self) -> Key<Self> {
-        self.seed.clone()
     }
 }
 
