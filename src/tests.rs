@@ -1,4 +1,4 @@
-use kem::{Decapsulator, KeyExport, KeyInit, Seed, TryDecapsulate};
+use kem::{Decapsulator, Encapsulate, Generate, KeyExport, KeyInit, Seed, TryDecapsulate};
 
 use crate::{
     MlKem768P256DecapsulationKey, MlKem768P256Kem, MlKem1024P384DecapsulationKey, MlKem1024P384Kem,
@@ -404,4 +404,30 @@ fn test_mlkem1024p768_case_1() {
 
     let decapsulated_shared_secret = decapsulation_key.try_decapsulate(&ciphertext).unwrap();
     assert_eq!(decapsulated_shared_secret, shared_secret);
+}
+
+#[test]
+fn test_mlkem768p256_round_trip() {
+    let mut rng = rand::rng();
+    let decapsulation_key = MlKem768P256DecapsulationKey::generate_from_rng(&mut rng);
+    let encapsulation_key = decapsulation_key.encapsulation_key();
+
+    let (ciphertext, shared_secret) = encapsulation_key.encapsulate_with_rng(&mut rng);
+    assert_eq!(
+        decapsulation_key.try_decapsulate(&ciphertext).unwrap(),
+        shared_secret
+    );
+}
+
+#[test]
+fn test_mlkem1024p384_round_trip() {
+    let mut rng = rand::rng();
+    let decapsulation_key = MlKem1024P384DecapsulationKey::generate_from_rng(&mut rng);
+    let encapsulation_key = decapsulation_key.encapsulation_key();
+
+    let (ciphertext, shared_secret) = encapsulation_key.encapsulate_with_rng(&mut rng);
+    assert_eq!(
+        decapsulation_key.try_decapsulate(&ciphertext).unwrap(),
+        shared_secret
+    );
 }
