@@ -404,6 +404,8 @@ pub trait RandomScalar: Curve {
                 return Some(secret_key);
             }
         }
+
+        // RandomScalar fails with cryptographically negligible probability
         None
     }
 }
