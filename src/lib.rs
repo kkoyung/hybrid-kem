@@ -120,6 +120,7 @@ impl HybridKemParameter for MlKem768P256 {
     type SharedSecretSize = U32;
 }
 
+/// <https://www.ietf.org/archive/id/draft-irtf-cfrg-concrete-hybrid-kems-04.html#name-mlkem1024-p384>
 impl Kem for MlKem768P256 {
     type DecapsulationKey = HybridKemDecapsulationKey<Self>;
     type EncapsulationKey = HybridKemEncapsulationKey<Self>;
