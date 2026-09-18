@@ -40,6 +40,16 @@ pub type MlKem768P256DecapsulationKey = HybridKemDecapsulationKey<MlKem768P256>;
 /// MLKEM768-P256 encapsulation key or public key.
 pub type MlKem768P256EncapsulationKey = HybridKemEncapsulationKey<MlKem768P256>;
 
+/// MLKEM768-X25519 Key Encapsulation Mechanisms.
+#[cfg(feature = "x-wing")]
+pub use x_wing::XWingKem as MlKem768X25519;
+/// MLKEM768-X25519 decapsulation key or private key.
+#[cfg(feature = "x-wing")]
+pub type MlKem768X25519DecapsulationKey = x_wing::DecapsulationKey;
+/// MLKEM768-X25519 encapsulation key or public key.
+#[cfg(feature = "x-wing")]
+pub type MlKem768X25519EncapsulationKey = x_wing::EncapsulationKey;
+
 /// MLKEM1024-P384 Key Encapsulation Mechanisms.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
 pub struct MlKem1024P384 {}
