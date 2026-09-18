@@ -1,7 +1,7 @@
 use kem::{Decapsulator, Encapsulate, Generate, KeyExport, KeyInit, Seed, TryDecapsulate};
 
 use crate::{
-    MlKem768P256DecapsulationKey, MlKem768P256, MlKem1024P384DecapsulationKey, MlKem1024P384,
+    MlKem768P256, MlKem768P256DecapsulationKey, MlKem1024P384, MlKem1024P384DecapsulationKey,
     expand_decaps_key_g,
 };
 
