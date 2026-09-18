@@ -9,8 +9,9 @@ use elliptic_curve::{
 use kem::common::OutputSizeUser;
 use kem::common::rand_core::{CryptoRng, TryCryptoRng};
 pub use kem::{
-    Ciphertext, DecapsulationKey, Decapsulator, Encapsulate, EncapsulationKey, Generate,
-    InvalidKey, Kem, Key, KeyExport, KeyInit, KeySizeUser, SharedKey, TryDecapsulate, TryKeyInit,
+    Ciphertext, Decapsulate, DecapsulationKey, Decapsulator, Encapsulate, EncapsulationKey,
+    Generate, InvalidKey, Kem, Key, KeyExport, KeyInit, KeySizeUser, SharedKey, TryDecapsulate,
+    TryKeyInit,
 };
 use ml_kem::array::Array;
 use ml_kem::array::sizes::{U32, U48, U128, U1153, U1249, U1665};
@@ -61,7 +62,7 @@ where
     <Self::GroupT as CurveArithmetic>::AffinePoint:
         FromSec1Point<Self::GroupT> + ToSec1Point<Self::GroupT>,
     <Self::KemPQ as Kem>::EncapsulationKey: EncapsulateDeterministic,
-    <Self::KemPQ as Kem>::DecapsulationKey: KeyInit,
+    <Self::KemPQ as Kem>::DecapsulationKey: Decapsulate + KeyInit,
 {
     type GroupT: Curve + CurveArithmetic + PointCompression + RandomScalar;
     type KemPQ: Kem;
@@ -278,8 +279,7 @@ impl<H: HybridKemParameter + Kem> TryDecapsulate for HybridKemDecapsulationKey<H
             &ciphertext_t,
             &decapsulation_key_pq,
             &decapsulation_key_t,
-        )
-        .map_err(|_| DecapsulationError)?;
+        );
 
         // ss_H = C2PRICombiner(ss_PQ, ss_T, ct_T, ek_T, Label)
         let shared_secret_h = c2pri_combiner::<H>(
@@ -511,22 +511,19 @@ fn prepare_decaps_g<H: HybridKemParameter>(
     ciphertext_t: &GroupPublicKey<H::GroupT>,
     decapsulation_key_pq: &<H::KemPQ as Kem>::DecapsulationKey,
     decapsulation_key_t: &GroupPrivateKey<H::GroupT>,
-) -> Result<
-    (
-        Array<u8, <H::KemPQ as Kem>::SharedKeySize>,
-        Array<u8, <H::GroupT as Curve>::FieldBytesSize>,
-    ),
-    <<H::KemPQ as Kem>::DecapsulationKey as TryDecapsulate>::Error,
-> {
+) -> (
+    Array<u8, <H::KemPQ as Kem>::SharedKeySize>,
+    Array<u8, <H::GroupT as Curve>::FieldBytesSize>,
+) {
     // ss_PQ = KEM_PQ.Decaps(dk_PQ, ct_PQ)
-    let shared_secret_pq = decapsulation_key_pq.try_decapsulate(ciphertext_pq)?;
+    let shared_secret_pq = decapsulation_key_pq.decapsulate(ciphertext_pq);
 
     // ss_T = Group_T.ElementToSharedSecret(Group_T.Exp(ct_T, dk_T))
     let shared_secret_t =
         element_to_shared_secret::<H>(decapsulation_key_t.diffie_hellman(ciphertext_t));
 
     // return (ss_PQ, ss_T)
-    Ok((shared_secret_pq, shared_secret_t))
+    (shared_secret_pq, shared_secret_t)
 }
 
 /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-5.1.3>
