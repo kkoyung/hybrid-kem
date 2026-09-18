@@ -32,16 +32,16 @@ use zeroize::ZeroizeOnDrop;
 mod tests;
 
 // MLKEM768-P256
-pub type MlKem768P256EncapsulationKey = HybridKemEncapsulationKey<MlKem768P256Kem>;
-pub type MlKem768P256DecapsulationKey = HybridKemDecapsulationKey<MlKem768P256Kem>;
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
 pub struct MlKem768P256Kem {}
+pub type MlKem768P256DecapsulationKey = HybridKemDecapsulationKey<MlKem768P256Kem>;
+pub type MlKem768P256EncapsulationKey = HybridKemEncapsulationKey<MlKem768P256Kem>;
 
 // MLKEM1024-P384
-pub type MlKem1024P384EncapsulationKey = HybridKemEncapsulationKey<MlKem1024P384Kem>;
-pub type MlKem1024P384DecapsulationKey = HybridKemDecapsulationKey<MlKem1024P384Kem>;
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
 pub struct MlKem1024P384Kem {}
+pub type MlKem1024P384DecapsulationKey = HybridKemDecapsulationKey<MlKem1024P384Kem>;
+pub type MlKem1024P384EncapsulationKey = HybridKemEncapsulationKey<MlKem1024P384Kem>;
 
 #[derive(Debug)]
 pub struct DecapsulationError;
