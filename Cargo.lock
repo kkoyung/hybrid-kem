@@ -258,7 +258,6 @@ dependencies = [
  "p256",
  "p384",
  "rand",
- "rand_core",
  "sha3 0.12.0",
  "shake",
  "zeroize",

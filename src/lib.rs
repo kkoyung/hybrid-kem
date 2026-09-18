@@ -7,6 +7,7 @@ use elliptic_curve::{
     Curve, CurveArithmetic, PublicKey as GroupPublicKey, ScalarValue, SecretKey as GroupPrivateKey,
 };
 use kem::common::OutputSizeUser;
+use kem::common::rand_core::{CryptoRng, TryCryptoRng};
 use kem::{
     Ciphertext, Decapsulator, Encapsulate, EncapsulationKey, Generate, InvalidKey, Kem, Key,
     KeyExport, KeyInit, KeySizeUser, SharedKey, TryDecapsulate, TryKeyInit,
@@ -20,7 +21,6 @@ use ml_kem::{
 };
 use p256::NistP256;
 use p384::NistP384;
-use rand_core::{CryptoRng, TryCryptoRng};
 use sha3::{Digest, Sha3_256};
 use shake::digest::{ExtendableOutput, XofReader};
 use shake::{Shake256, Update};
