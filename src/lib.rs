@@ -56,6 +56,12 @@ impl core::fmt::Display for DecapsulationError {
 
 impl core::error::Error for DecapsulationError {}
 
+impl From<std::array::TryFromSliceError> for DecapsulationError {
+    fn from(_value: std::array::TryFromSliceError) -> Self {
+        DecapsulationError
+    }
+}
+
 pub trait HybridKemParameter
 where
     <Self::GroupT as Curve>::FieldBytesSize: ModulusSize,
