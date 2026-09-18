@@ -32,18 +32,23 @@ use zeroize::ZeroizeOnDrop;
 #[cfg(test)]
 mod tests;
 
-// MLKEM768-P256
+/// MLKEM768-P256 Key Encapsulation Mechanisms.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
 pub struct MlKem768P256 {}
+/// MLKEM768-P256 decapsulation key or private key.
 pub type MlKem768P256DecapsulationKey = HybridKemDecapsulationKey<MlKem768P256>;
+/// MLKEM768-P256 encapsulation key or public key.
 pub type MlKem768P256EncapsulationKey = HybridKemEncapsulationKey<MlKem768P256>;
 
-// MLKEM1024-P384
+/// MLKEM1024-P384 Key Encapsulation Mechanisms.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
 pub struct MlKem1024P384 {}
+/// MLKEM1024-P384 decapsulation key or private key.
 pub type MlKem1024P384DecapsulationKey = HybridKemDecapsulationKey<MlKem1024P384>;
+/// MLKEM1024-P384 encapsulation key or public key.
 pub type MlKem1024P384EncapsulationKey = HybridKemEncapsulationKey<MlKem1024P384>;
 
+/// Error type for ['TryDecapsulate'] for cases whose the decapsulation fails.
 #[derive(Debug)]
 pub struct DecapsulationError;
 
@@ -62,6 +67,8 @@ impl From<std::array::TryFromSliceError> for DecapsulationError {
     }
 }
 
+/// KEM components and constant of the concrete hybrid KEM instances, specified in Section 4 of
+/// draft-irtf-cfrg-concrete-hybrid-kems-04.
 pub trait HybridKemParameter
 where
     <Self::GroupT as Curve>::FieldBytesSize: ModulusSize,
@@ -70,37 +77,47 @@ where
     <Self::KemPQ as Kem>::EncapsulationKey: EncapsulateDeterministic,
     <Self::KemPQ as Kem>::DecapsulationKey: Decapsulate + KeyInit,
 {
+    /// `Group_T` component
     type GroupT: Curve + CurveArithmetic + PointCompression + RandomScalar;
+    /// `KEM_PQ` component
     type KemPQ: Kem;
+    /// `PRG` component
     type PRG: Default + Update + ExtendableOutput;
+    /// `KDF` component
     type KDF: Default + Digest;
+    /// `Label` component
+    const LABEL: &[u8];
 
+    /// `Nseed` constant. The length of seed.
     type SeedSize: ArraySize;
+    /// `Nek` constant. The length of encapsulation key.
     type EncapsulationKeySize: ArraySize;
+    /// `Ndk` constant. The length of decapsulation key.
     type DecapsulationKeySize: ArraySize;
+    /// `Nct` constant. The length of ciphertext key.
     type CiphertextSize: ArraySize;
+    /// `Nss` constant. The length of shared secret key.
     type SharedSecretSize: ArraySize;
+
     // NOTE: For MLKEM768-P256 and MLKEM1024-P384, the seed is directly used as the decapsulation
     // key, so the seed size is same as the decapsulation key size. However, Rust compiler does not
     // know it from this trait definition, and refuse to compile. To make it compile, we replace
     // `SeedSize` with `DecapsulationKeySize` in trait implementation.
-
-    const LABEL: &[u8];
 }
 
+/// <https://www.ietf.org/archive/id/draft-irtf-cfrg-concrete-hybrid-kems-04.html#name-mlkem768-p256>
 impl HybridKemParameter for MlKem768P256 {
     type GroupT = NistP256;
     type KemPQ = MlKem768;
     type PRG = Shake256;
     type KDF = Sha3_256;
+    const LABEL: &[u8] = br"MLKEM768-P256";
 
     type SeedSize = U32;
     type EncapsulationKeySize = U1249;
     type DecapsulationKeySize = U32;
     type CiphertextSize = U1153;
     type SharedSecretSize = U32;
-
-    const LABEL: &[u8] = br"MLKEM768-P256";
 }
 
 impl Kem for MlKem768P256 {
@@ -110,19 +127,19 @@ impl Kem for MlKem768P256 {
     type CiphertextSize = <Self as HybridKemParameter>::CiphertextSize;
 }
 
+/// <https://www.ietf.org/archive/id/draft-irtf-cfrg-concrete-hybrid-kems-04.html#name-mlkem1024-p384>
 impl HybridKemParameter for MlKem1024P384 {
     type GroupT = NistP384;
     type KemPQ = MlKem1024;
     type PRG = Shake256;
     type KDF = Sha3_256;
+    const LABEL: &[u8] = br"MLKEM1024-P384";
 
     type SeedSize = U32;
     type EncapsulationKeySize = U1665;
     type DecapsulationKeySize = U32;
     type CiphertextSize = U1665;
     type SharedSecretSize = U32;
-
-    const LABEL: &[u8] = br"MLKEM1024-P384";
 }
 
 impl Kem for MlKem1024P384 {
@@ -144,7 +161,8 @@ impl Kem for MlKem1024P384 {
 // _PQ : Post-quantum
 // _T  : Traditional
 
-/// EncapsulationKey
+/// A hybrid KEM encapsulation key whose the KEM components and constants are specified by the
+/// generic parameter `H: HybridKemParameter`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HybridKemEncapsulationKey<H: HybridKemParameter> {
     encapsulation_key_pq: <H::KemPQ as Kem>::EncapsulationKey,
@@ -245,7 +263,8 @@ impl<H: HybridKemParameter> KeySizeUser for HybridKemEncapsulationKey<H> {
     type KeySize = H::EncapsulationKeySize;
 }
 
-/// DecapsulationKey
+/// A hybrid KEM decapsulation key whose the KEM components and constants are specified by the
+/// generic parameter `H: HybridKemParameter + Kem`.
 pub struct HybridKemDecapsulationKey<H: HybridKemParameter + Kem> {
     seed: Array<u8, H::DecapsulationKeySize>,
     encapsulation_key: <H as Kem>::EncapsulationKey,
@@ -351,9 +370,11 @@ impl<H: HybridKemParameter + Kem> KeySizeUser for HybridKemDecapsulationKey<H> {
 #[cfg(feature = "zeroize")]
 impl<H: HybridKemParameter + Kem> ZeroizeOnDrop for HybridKemDecapsulationKey<H> {}
 
+/// A trait providing shared function for encapsulating with given randomness.
 pub trait EncapsulateDeterministic: Encapsulate {
     type SeedSize: ArraySize;
 
+    /// Encapsulates with the given randomness.
     fn encapsulate_deterministic(
         &self,
         seed: &Array<u8, Self::SeedSize>,
@@ -382,12 +403,15 @@ impl EncapsulateDeterministic for MlKem1024EncapsulationKey {
     }
 }
 
+/// A trait for implementing the `RandomScalar(seed)` algorithm for nominal groups, as described in
+/// Section 3.1 of draft-irtf-cfrg-concrete-hybrid-kems-04.
 pub trait RandomScalar: Curve {
+    /// Length of `seed`.
     type SeedSize: ArraySize;
 
     /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-concrete-hybrid-kems-04.html#section-3.1.1>
     ///
-    /// RandomScalar(seed):
+    /// RandomScalar(seed)
     fn random_scalar(seed: &Array<u8, Self::SeedSize>) -> Option<GroupPrivateKey<Self>> {
         // start = 0
         // end = Nscalar
@@ -426,7 +450,7 @@ impl RandomScalar for NistP384 {
 
 /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-hybrid-kems-12.html#section-5.1.1>
 ///
-/// expandDecapsKeyG(seed):
+/// expandDecapsKeyG(seed)
 #[expect(clippy::type_complexity)]
 fn expand_decaps_key_g<H: HybridKemParameter>(
     seed: &Array<u8, H::DecapsulationKeySize>,
@@ -469,7 +493,7 @@ fn expand_decaps_key_g<H: HybridKemParameter>(
 
 /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-5.1.1>
 ///
-/// prepareEncapsG(ek_PQ, ek_T):
+/// prepareEncapsG(ek_PQ, ek_T)
 #[expect(clippy::type_complexity)]
 fn prepare_encaps_g<H: HybridKemParameter>(
     encapsulation_key_pq: &<H::KemPQ as Kem>::EncapsulationKey,
@@ -512,7 +536,7 @@ fn prepare_encaps_g<H: HybridKemParameter>(
 
 /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-5.1.1>
 ///
-/// prepareDecapsG(ct_PQ, ct_T, dk_PQ, dk_T):
+/// prepareDecapsG(ct_PQ, ct_T, dk_PQ, dk_T)
 #[expect(clippy::type_complexity)]
 fn prepare_decaps_g<H: HybridKemParameter>(
     ciphertext_pq: &Array<u8, <H::KemPQ as Kem>::CiphertextSize>,
@@ -536,7 +560,7 @@ fn prepare_decaps_g<H: HybridKemParameter>(
 
 /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-5.1.3>
 ///
-/// C2PRICombiner(ss_PQ, ss_T, ct_T, ek_T, label):
+/// C2PRICombiner(ss_PQ, ss_T, ct_T, ek_T, label)
 fn c2pri_combiner<H: HybridKemParameter>(
     shared_secret_pq: &SharedKey<H::KemPQ>,
     shared_secret_t: &Array<u8, <H::GroupT as Curve>::FieldBytesSize>,
@@ -556,10 +580,11 @@ fn c2pri_combiner<H: HybridKemParameter>(
 
 /// <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hybrid-kems-12#section-4.2>
 ///
-/// ElementToSharedSecret(P) -> ss: Extract a shared secret from an element of the group (e.g., by
-/// taking the X coordinate of an elliptic curve point).
+/// ElementToSharedSecret(P) -> ss
 fn element_to_shared_secret<H: HybridKemParameter>(
     p: SharedSecret<H::GroupT>,
 ) -> Array<u8, <H::GroupT as Curve>::FieldBytesSize> {
+    // Extract a shared secret from an element of the group (e.g., by taking the X coordinate of an
+    // elliptic curve point).
     *p.raw_secret_bytes()
 }
