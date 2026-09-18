@@ -8,9 +8,9 @@ use elliptic_curve::{
 };
 use kem::common::OutputSizeUser;
 use kem::common::rand_core::{CryptoRng, TryCryptoRng};
-use kem::{
-    Ciphertext, Decapsulator, Encapsulate, EncapsulationKey, Generate, InvalidKey, Kem, Key,
-    KeyExport, KeyInit, KeySizeUser, SharedKey, TryDecapsulate, TryKeyInit,
+pub use kem::{
+    Ciphertext, DecapsulationKey, Decapsulator, Encapsulate, EncapsulationKey, Generate,
+    InvalidKey, Kem, Key, KeyExport, KeyInit, KeySizeUser, SharedKey, TryDecapsulate, TryKeyInit,
 };
 use ml_kem::array::Array;
 use ml_kem::array::sizes::{U32, U48, U128, U1153, U1249, U1665};
