@@ -271,6 +271,7 @@ pub struct HybridKemDecapsulationKey<H: HybridKemParameter + Kem> {
 }
 
 impl<H: HybridKemParameter + Kem> HybridKemDecapsulationKey<H> {
+    /// Private key as bytes.
     pub fn as_bytes(&self) -> &Array<u8, <H as HybridKemParameter>::DecapsulationKeySize> {
         &self.seed
     }
